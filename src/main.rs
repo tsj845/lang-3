@@ -56,5 +56,11 @@ fn main () {
 		printv!(contents[i]);
 		i += 1;
 	}
-	tokenize(contents);
+	let tokens : Vec<Token> = tokenize(contents);
+	let mut var_scopes : VarSpaces = VarSpaces::new();
+	var_scopes.write_constants(CONST_VARS);
+	let x = var_scopes.get("true");
+	let y = var_scopes.get("version");
+	printv!(x[0], x[1]);
+	printv!(y[0], y[1]);
 }

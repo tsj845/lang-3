@@ -18,6 +18,11 @@ macro_rules! printv {
 	};
 }
 
+// namespace identifiers
+pub const CONSTANT : usize = 0;
+pub const GLOBAL : usize = 1;
+pub const LOCAL : usize = 2;
+
 // token types
 pub const NUL : u8 = 0;
 pub const FUN : u8 = 1;
@@ -32,6 +37,9 @@ pub const ERR : u8 = 9;
 pub const TST : u8 = 10;
 pub const TOKEN_ARRAY : [&str; 11] = ["NUL", "FUN", "REF", "LIT", "KEY", "MAT", "LOG", "ASS", "EOF", "ERR", "TST"];
 pub const FILE_EXT : &str = ".fpp";
+
+// constant variables
+pub const CONST_VARS : [[&str; 3]; 4] = [["null", "NULL", "null"], ["true", "bool", "true"], ["false", "bool", "false"], ["version", "str", "ALPH_0"]];
 
 pub struct Token {
 	id : u8,
