@@ -83,4 +83,11 @@ impl Var_spaces {
 		}
 		return &self.spaces[y as usize].values[x as usize];
 	}
+	pub fn set (&mut self, name : String, value : Vec<String>) {
+		let (y, x) = self.find(name.clone());
+		if y < 0 {
+			panic!("could not find value location");
+		}
+		self.spaces[y as usize].values[x as usize] = value;
+	}
 }
