@@ -1,4 +1,5 @@
-use crate::statics::CONST_VARS;
+use crate::statics::{Token, UDF, BASE_TOKEN};
+use std::collections::HashMap;
 
 fn v_bs_to_v_hs (original : Vec<&str>) -> Vec<String> {
 	let mut v : Vec<String> = Vec::new();
@@ -14,128 +15,50 @@ fn v_bs_to_v_hs (original : Vec<&str>) -> Vec<String> {
 	return v;
 }
 
-pub struct VarSpace {
-	names : Vec<String>,
-	values : Vec<Vec<String>>,
+pub struct VarScopes {
+	scopes : Vec<HashMap<String, Token>>,
 }
 
-impl VarSpace {
-	pub fn new () -> VarSpace {
-		VarSpace {
-			names : Vec::new(),
-			values : Vec::new(),
+impl VarScopes {
+	pub fn new () -> VarScopes {
+		VarScopes {
+			scopes : vec![HashMap::new()],
 		}
 	}
-	pub fn add (&mut self, name : &str, value : Vec<&str>) {
-		self.names.push(String::from(name));
-		self.values.push(v_bs_to_v_hs(value));
-	}
-	pub fn index (&self, name : &str) -> i32 {
-		let mut i = 0i32;
-		let l = self.names.len();
-		loop {
-			if i >= l as i32 {
-				break;
-			}
-			if self.names[i as usize] == name {
-				return i;
-			}
-			i += 1;
-		}
-		return -1;
-	}
-	pub fn has (&self, name : &str) -> bool {
-		return self.index(name) >= 0;
-	}
-	pub fn get (&self, name : &str) -> &Vec<String> {
-		let index = self.index(name);
-		if index < 0 {
-			panic!("could not find element");
-		}
-		return &self.values[index as usize];
-	}
-	pub fn set (&mut self, name : &str, value : Vec<&str>) {
-		let index = self.index(name);
-		if index < 0 {
-			panic!("could not find element");
-		}
-		self.values[index as usize] = v_bs_to_v_hs(value);
-	}
-}
-
-pub struct VarSpaces {
-	spaces : Vec<VarSpace>,
-}
-
-impl VarSpaces {
-	pub fn new () -> VarSpaces {
-		VarSpaces {
-			spaces : vec![VarSpace::new(), VarSpace::new()],
-		}
-	}
-	pub fn write_constants (&mut self, values : [[&str;3];CONST_VARS.len()]) {
-		let mut i = 0usize;
-		let l = values.len();
-		loop {
-			if i >= l {
-				break;
-			}
-			self.write_to_scope(0usize, values[i][0], vec![values[i][1], values[i][2]]);
-			i += 1;
-		}
-	}
-	pub fn write_to_scope (&mut self, mut id : usize, name : &str, value : Vec<&str>) {
-		if id > 2 {
+	pub fn write_to_scope (&mut self, mut id : usize, name : &str, value : Token) {
+		if id > 1 {
 			panic!("invalid scope id");
 		}
-		if id == 2 {
-			id = self.spaces.len() - 1;
+		if id == 1 {
+			id = self.scopes.len() - 1;
 		}
-		let mut scope = &mut self.spaces[id];
-		if scope.has(name) {
-			scope.set(name, value);
-		} else {
-			scope.add(name, value);
-		}
+		let scope = &mut self.scopes[id];
+		scope.insert(name.to_string(), value);
 	}
 	pub fn new_scope (&mut self) {
-		self.spaces.push(VarSpace::new());
+		self.scopes.push(HashMap::new());
 	}
 	pub fn rem_scope (&mut self) {
-		self.spaces.pop();
+		self.scopes.pop();
 	}
-	pub fn find (&self, name : &str) -> (i32, i32) {
-		let mut i = self.spaces.len() - 1;
+	pub fn get (&self, name : &str) -> Token {
+		let mut i = self.scopes.len()-1;
 		loop {
-			if self.spaces[i].has(name.clone()) {
-				return (i as i32, self.spaces[i].index(name));
+			if self.scopes[i].contains_key(name.clone()) {
+				return self.scopes[i].get(&name.to_string()).unwrap().clone();
 			}
 			if i == 0 {
 				break;
 			}
 			i -= 1;
 		}
-		return (-1i32, -1i32);
+		return Token::new(UDF, String::from("UDF"), BASE_TOKEN);
 	}
-	pub fn get (&self, name : &str) -> &Vec<String> {
-		let (y, x) = self.find(name.clone());
-		if y < 0 {
-			panic!("could not find value location");
+	pub fn set (&mut self, name : &str, value : Token) {
+		if self.scopes[0].contains_key(name.clone()) {
+			return;
 		}
-		return &self.spaces[y as usize].values[x as usize];
-	}
-	pub fn set (&mut self, name : &str, value : Vec<&str>) {
-		let (y, x) = self.find(name.clone());
-		if y < 0 {
-			panic!("could not find value location");
-		}
-		self.spaces[y as usize].values[x as usize] = v_bs_to_v_hs(value);
-	}
-	pub fn add (&mut self, name : &str, value : Vec<&str>) {
-		let last = self.spaces.len()-1;
-		if self.spaces[last].has(name.clone()) {
-			panic!("scope already has value");
-		}
-		self.spaces[last].add(name, value);
+		let l = self.scopes.len()-1;
+		self.scopes[l].insert(name.to_string(), value);
 	}
 }

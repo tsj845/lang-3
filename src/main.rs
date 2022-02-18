@@ -1,45 +1,37 @@
 #[macro_use] extern crate lang_1 as this;
+// extern crate regex;
 
-use std::fmt;
+// use std::fmt;
 use std::fs::File;
 use std::io::Read;
 use this::statics::*;
 use this::scopes::*;
+use this::tokenize::*;
+// use regex::Regex;
 
 struct Parser {
 	tokens : Vec<Token>,
+	memory : VarScopes,
 }
 
 impl Parser {
 	fn new (tokens : Vec<Token>) -> Parser {
 		Parser {
 			tokens : tokens,
+			memory : VarScopes::new(),
 		}
 	}
-}
-
-fn tokenize (lines : Vec<&str>) -> Vec<Token> {
-	let mut final_vec = Vec::new();
-	let mut line_index = 0;
-	let lines_len_total = lines.len();
-	'outer : loop {
-		if line_index >= lines_len_total {
-			break 'outer;
-		}
-		let line : Vec<char> = lines[line_index].chars().collect();
-		let mut i : usize = 0usize;
-		let line_len = line.len();
-		'inner : loop {
-			if i >= line_len {
-				break 'inner;
+	fn run (&mut self) -> u8 {
+		let mut token_index : usize = 0;
+		let tokens_length = self.tokens.len();
+		loop {
+			if token_index >= tokens_length {
+				break;
 			}
-			print!("{}", line[i].to_string() + " ");
-			i += 1;
+			token_index += 1;
 		}
-		println!("");
-		line_index += 1;
+		return 0;
 	}
-	return final_vec;
 }
 
 fn main () {
@@ -47,20 +39,8 @@ fn main () {
 	let mut contents = String::new();
 	file.read_to_string(&mut contents).expect("FAILURE");
 	let contents: Vec<_> = contents.split("\n").collect();
-	let mut i = 0;
-	let l = contents.len();
-	loop {
-		if i >= l {
-			break;
-		}
-		printv!(contents[i]);
-		i += 1;
-	}
 	let tokens : Vec<Token> = tokenize(contents);
-	let mut var_scopes : VarSpaces = VarSpaces::new();
-	var_scopes.write_constants(CONST_VARS);
-	let x = var_scopes.get("true");
-	let y = var_scopes.get("version");
-	printv!(x[0], x[1]);
-	printv!(y[0], y[1]);
+	let mut program : Parser = Parser::new(tokens);
+	program.run();
+	println!("\n\n");
 }
