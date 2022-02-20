@@ -88,9 +88,30 @@ fn get_word (mut i : usize, line_str : String) -> (usize, String) {
 	return (i, word);
 }
 
-pub fn preprocess (tokens : Vec<Token>) -> Vec<Token> {
-	// let mut fv : Vec<Token> = Vec::new();
-	return tokens;
+fn process_grp (i : usize, tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
+	if tokens[i].value == "{" || tokens[i].value == "}" {
+		return (i+1, tokens, tokens[i].clone());
+	}
+}
+
+pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
+	let mut fv : Vec<Token> = Vec::new();
+	let mut i : usize = 0;
+	let l = tokens.len();
+	loop {
+		if i >= l {
+			break;
+		}
+		if tokens[i].id == GRP {
+			(i, tokens, r) = process_grp(i, tokens);
+			fv.push(r);
+			continue;
+		} else {
+			fv.push(tokens[i].clone());
+		}
+		i += 1;
+	}
+	return fv;
 }
 
 pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {

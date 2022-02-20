@@ -73,11 +73,11 @@ pub const SEPER_RE_PAT : &str = r"[:,]";
 pub const KEYWD_RE_PAT : &str = r"global|local";
 
 pub struct Token {
-	id : u8,
-	value : String,
-	dict : Option<HashMap<String, Token>>,
-	list : Option<Vec<Token>>,
-	length : usize,
+	pub id : u8,
+	pub value : String,
+	pub dict : Option<HashMap<String, Token>>,
+	pub list : Option<Vec<Token>>,
+	pub length : usize,
 }
 
 impl Token {
