@@ -88,29 +88,57 @@ fn get_word (mut i : usize, line_str : String) -> (usize, String) {
 	return (i, word);
 }
 
-fn process_grp (i : usize, tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
+fn process_grp (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
 	if tokens[i].value == "{" || tokens[i].value == "}" {
-		return (i+1, tokens, tokens[i].clone());
+		let x = tokens[i].clone();
+		return (i+1, tokens, x);
+	} else if tokens[i].value == "[" {
+		let mut lst : Vec<Token> = Vec::new();
+		loop {
+			if i >= tokens.len() {
+				panic!("GRP finding out of bounds");
+			}
+			if tokens[i].value == "]" {
+				tokens.remove(i);
+				break;
+			} else {
+				lst.push(tokens.remove(i));
+			}
+		}
+		let mut f : Token = Token::new(LST, "LST".to_string(), LIST_TOKEN);
+		for t in lst {
+			if t.id != SEP {
+				f.push(t.clone());
+			}
+		}
+		return (i, tokens, f);
+	} else {
+		panic!("unkown GRP token");
 	}
 }
 
 pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
 	let mut fv : Vec<Token> = Vec::new();
 	let mut i : usize = 0;
-	let l = tokens.len();
+	let mut l = tokens.len();
 	loop {
 		if i >= l {
 			break;
 		}
 		if tokens[i].id == GRP {
-			(i, tokens, r) = process_grp(i, tokens);
-			fv.push(r);
+			let x : (usize, Vec<Token>, Token) = process_grp(i, tokens);
+			i = x.0;
+			tokens = x.1;
+			l = tokens.len();
+			// printv!(&x.2);
+			fv.push(x.2);
 			continue;
 		} else {
 			fv.push(tokens[i].clone());
 		}
 		i += 1;
 	}
+	printlst::<Token>(&fv);
 	return fv;
 }
 
@@ -133,6 +161,10 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 		static ref SEPER_RE : Regex = Regex::new(SEPER_RE_PAT).unwrap();
 		// keywords
 		static ref KEYWD_RE : Regex = Regex::new(KEYWD_RE_PAT).unwrap();
+		// assignments
+		static ref ASIGN_RE : Regex = Regex::new(ASIGN_RE_PAT).unwrap();
+		// mathmatics
+		static ref MATHM_RE : Regex = Regex::new(MATHM_RE_PAT).unwrap();
 	}
 	let mut line_index = 0;
 	let lines_len_total = lines.len();
@@ -148,22 +180,31 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 			if i >= line_len {
 				break 'inner;
 			}
-			if line[i] == ' ' || line[i] == ';' {
+			if line[i] == ' ' {
 				i += 1;
 				continue;
 			}
-			if line[i] == '"' {
+			if line[i] == ';' {
+				words.push(String::from(";"));
+			} else if line[i] == '"' {
 				let x : (usize, String) = get_containing(i, line[i].clone(), get_complement_surround(line[i].clone()), lines[line_index].to_string());
 				i = x.0;
 				words.push(x.1);
 			} else if line[i].is_digit(10) {
 				let x : (usize, String) = get_number(i, lines[line_index].to_string());
-				i = x.0;
+				i = x.0 - 1;
 				words.push(x.1);
 			} else if line[i].is_alphabetic() {
 				let x : (usize, String) = get_word(i, lines[line_index].to_string());
 				i = x.0;
 				words.push(x.1);
+			} else if line[i] == '+' || line[i] == '-' || line[i] == '*' || line[i] == '/' {
+				let mut v = line[i].to_string();
+				if line[i+1] == '=' {
+					v += &line[i+1].to_string();
+				}
+				words.push(v);
+				i += 1;
 			} else {
 				words.push(line[i].to_string());
 			}
@@ -173,7 +214,9 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 	}
 	let mut tokens : Vec<Token> = Vec::new();
 	for word in words {
-		if word.starts_with('"') || NUMBER_RE.is_match(&word) || LITERAL_RE.is_match(&word) {
+		if word == ";" {
+			tokens.push(Token::new(NLN, word, BASE_TOKEN));
+		} else if word.starts_with('"') || NUMBER_RE.is_match(&word) || LITERAL_RE.is_match(&word) {
 			tokens.push(Token::new(LIT, word, BASE_TOKEN));
 		} else if KEYWD_RE.is_match(&word) {
 			tokens.push(Token::new(KEY, word, BASE_TOKEN));
@@ -185,10 +228,14 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 			tokens.push(Token::new(GRP, word, BASE_TOKEN));
 		} else if SEPER_RE.is_match(&word) {
 			tokens.push(Token::new(SEP, word, BASE_TOKEN));
+		} else if ASIGN_RE.is_match(&word) {
+			tokens.push(Token::new(ASS, word, BASE_TOKEN));
+		} else if MATHM_RE.is_match(&word) {
+			tokens.push(Token::new(MAT, word, BASE_TOKEN));
 		} else {
 			tokens.push(Token::new(UDF, word, BASE_TOKEN));
 		}
 	}
-	printlst::<Token>(&tokens);
-	return tokens;
+	// printlst::<Token>(&tokens);
+	return preprocess(tokens);
 }

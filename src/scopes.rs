@@ -1,20 +1,6 @@
 use crate::statics::{Token, UDF, BASE_TOKEN};
 use std::collections::HashMap;
 
-fn v_bs_to_v_hs (original : Vec<&str>) -> Vec<String> {
-	let mut v : Vec<String> = Vec::new();
-	let mut i = 0usize;
-	let l = original.len();
-	loop {
-		if i >= l {
-			break;
-		}
-		v.push(String::from(original[i]));
-		i += 1;
-	}
-	return v;
-}
-
 pub struct VarScopes {
 	scopes : Vec<HashMap<String, Token>>,
 }
@@ -55,9 +41,6 @@ impl VarScopes {
 		return Token::new(UDF, String::from("UDF"), BASE_TOKEN);
 	}
 	pub fn set (&mut self, name : &str, value : Token) {
-		if self.scopes[0].contains_key(name.clone()) {
-			return;
-		}
 		let l = self.scopes.len()-1;
 		self.scopes[l].insert(name.to_string(), value);
 	}
