@@ -5,7 +5,7 @@
 - dictionaries
 - functions
 
-## INSTANCIATING PRIMITIVES ##
+## INSTANTIATING PRIMITIVES ##
 ### strings ###
 use double quotes: ""
 
