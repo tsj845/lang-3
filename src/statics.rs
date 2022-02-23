@@ -62,7 +62,7 @@ pub const TOKEN_ARRAY : [&str; 17] = ["NUL", "FUN", "REF", "LIT", "KEY", "MAT", 
 pub const FILE_EXT : &str = ".ihl";
 
 // program keywords
-pub const KEYWORDS : [&str; 6] = ["gloabl", "local", "func", "print", "of", "dumpscope"];
+pub const KEYWORDS : [&str; 9] = ["gloabl", "local", "func", "print", "of", "dumpscope", "rm", "garbage", "log"];
 
 // tokenization regex patterns
 pub const WORD_RE_PAT : &str = r"[[:alpha:]]+[[:word:]]*";
@@ -72,7 +72,7 @@ pub const LITERAL_RE_PAT : &str = r"true|false|null";
 pub const PAREN_RE_PAT : &str = r"[()]";
 pub const GROUP_RE_PAT : &str = r"$?[{}\[\]]";
 pub const SEPER_RE_PAT : &str = r"[:,]";
-pub const KEYWD_RE_PAT : &str = r"global|local|func|print|of|dumpscope";
+pub const KEYWD_RE_PAT : &str = r"global|local|func|print|of|dumpscope|rm|garbage|log";
 pub const ASIGN_RE_PAT : &str = r"=";
 pub const MATHM_RE_PAT : &str = r"[-+*/]";
 pub const TOKEN_STR_RE_PAT : &str = r#"".*""#;
@@ -83,6 +83,7 @@ pub struct Token {
 	pub dict : Option<HashMap<String, Token>>,
 	pub list : Option<Vec<Token>>,
 	pub length : usize,
+	pub data_type : u8,
 	tt : u8,
 }
 
@@ -102,6 +103,7 @@ impl Token {
 				dict : None,
 				list : None,
 				length : 0,
+				data_type : 0,
 				tt : tt,
 			};
 		} else if tt == DICT_TOKEN {
@@ -111,6 +113,7 @@ impl Token {
 				dict : Some(HashMap::new()),
 				list : None,
 				length : 0,
+				data_type : 0,
 				tt : tt,
 			};
 		} else if tt == LIST_TOKEN {
@@ -120,6 +123,7 @@ impl Token {
 				dict : None,
 				list : Some(Vec::new()),
 				length : 0,
+				data_type : 0,
 				tt : tt,
 			};
 		}
@@ -209,6 +213,7 @@ impl std::clone::Clone for Token {
 			dict : self.dict.clone(),
 			list : self.list.clone(),
 			length : self.length,
+			data_type : self.data_type,
 			tt : self.tt,
 		}
 	}
@@ -231,6 +236,6 @@ impl fmt::Display for Token {
 
 impl std::cmp::PartialEq for Token {
 	fn eq (&self, other: &Token) -> bool {
-		return other.id == self.id && other.value == self.value;
+		return other.id == self.id && other.value == self.value && other.data_type == self.data_type;
 	}
 }

@@ -124,17 +124,18 @@ impl Parser {
 		}
 		return self.__fault();
 	}
-	fn printop (&self, mut i : usize) -> usize {
-		let l = self.tokens.len();
+	fn printop (&self, mut i : usize, tokens : &Vec<Token>) -> usize {
+		let l = tokens.len();
 		let mut new_arg_ready = true;
 		loop {
 			if i >= l {
 				break;
 			}
-			if self.tokens[i].id == NLN {
+			let token = tokens[i].clone();
+			if token.id == NLN {
 				break;
 			}
-			if self.tokens[i] == self.SEPTOK {
+			if token == self.SEPTOK {
 				new_arg_ready = true;
 				i += 1;
 				continue;
@@ -146,24 +147,25 @@ impl Parser {
 					if i >= l {
 						break;
 					}
-					if self.tokens[i].id == NLN {
+					let token = tokens[i].clone();
+					if token.id == NLN {
 						i -= 1;
 						break;
 					}
-					if self.tokens[i] == self.SEPTOK {
+					if token == self.SEPTOK {
 						i -= 1;
 						break;
 					}
 					if copt == self.UDFTOK {
-						copt = self.tokens[i].clone();
+						copt = token.clone();
 					} else {
-						if (self.tokens[i].id > 6 || self.tokens[i].id < 5) && (self.tokens[i].id != KEY || self.tokens[i].value != "of") {
-							copt = self.tokens[i].clone();
-						} else if self.tokens[i].id == KEY {
-							copt = self.parse_of(i);
+						if (token.id > 6 || token.id < 5) && (token.id != KEY || token.value != "of") {
+							copt = token.clone();
+						} else if token.id == KEY {
+							copt = self.parse_of(i, &tokens);
 							i += 1;
 						} else {
-							copt = self.gen_op(copt, self.tokens[i].clone(), self.tokens[i+1].clone());
+							copt = self.gen_op(copt, token.clone(), tokens[i+1].clone());
 							i += 1;
 						}
 					}
@@ -183,9 +185,9 @@ impl Parser {
 		print!("{}", String::from("\n").repeat(self.terminating_newlines as usize));
 		return i;
 	}
-	fn dumpscope (&self, mut i : usize) -> usize {
+	fn dumpscope (&self, mut i : usize, tokens : &Vec<Token>) -> usize {
 		i += 1;
-		let c = self.tokens[i].value.clone();
+		let c = tokens[i].value.clone();
 		if c == "0" {
 			self.memory.dump(0);
 		} else if c == "1" {
@@ -195,49 +197,147 @@ impl Parser {
 		}
 		return i;
 	}
-	fn parse_of (&self, i : usize) -> Token {
-		let mut t : Token = self.tokens[i+1].clone();
+	fn parse_of (&self, i : usize, tokens : &Vec<Token>) -> Token {
+		let mut t : Token = tokens[i+1].clone();
 		if t.id == REF {
 			t = self.deref(t);
 		}
 		return match t.tt() {LIST_TOKEN => t.get(self.tokens[i-1].value.parse::<usize>().unwrap()), _ => t.getd(self.tokens[i-1].value.clone())};
 	}
-	fn run (&mut self) -> u8 {
+	fn func_call (&mut self, i : usize, tokens : &mut Vec<Token>) -> usize {
+		let t : Vec<Token> = self.deref(tokens[i-1].clone()).list.as_ref().unwrap().clone();
+		let l = tokens.len();
+		let mut depth = 0;
+		let mut atoks : Vec<Token> = Vec::new();
+		loop {
+			if i >= l {
+				break;
+			}
+			if tokens[i].id == PAR {
+				if tokens[i].value == ")" {
+					depth -= 1;
+					if depth == 0 {
+						break;
+					}
+					atoks.push(tokens.remove(i));
+				} else if tokens[i].value == "(" {
+					atoks.push(tokens.remove(i));
+					depth += 1;
+				}
+			} else {
+				atoks.push(tokens.remove(i));
+			}
+			// i += 1;
+		}
+		self.memory.new_scope();
+		let mut j : usize = 0;
+		let k = t.len();
+		let mut o : usize = 0;
+		let p = atoks.len();
+		loop {
+			if j >= k {
+				break;
+			}
+			if t[j].id == SEP && t[j].value == "*" {
+				break;
+			}
+			if t[j].id == SEP {
+				j += 1;
+				continue;
+			}
+			let vname = t[j].value.clone();
+			self.memory.flag_var(vname.clone(), 0u8);
+			let mut atoksn : Vec<Token> = Vec::new();
+			loop {
+				if o >= p {
+					break;
+				}
+				if atoks[o].id == SEP {
+					o += 1;
+					break;
+				}
+				atoksn.push(atoks[o].clone());
+				o += 1;
+			}
+			self.memory.set(&vname, self.eval_exp(atoksn));
+			j += 1;
+		}
+		tokens[i] = self.eval(t);
+		self.memory.rem_scope();
+		return i;
+	}
+	fn eval_exp (&self, toks : Vec<Token>) -> Token {
+		return toks[0].clone();
+	}
+	fn eval (&mut self, mut tokens : Vec<Token>) -> Token {
 		let mut token_index : usize = 0;
-		let tokens_length = self.tokens.len();
+		let mut tokens_length = tokens.len();
 		loop {
 			if token_index >= tokens_length {
 				break;
 			}
+			let token = tokens[token_index].clone();
 			// meta properties
-			if self.tokens[token_index].id == MET {
-				if self.tokens[token_index].value == "terminating_newlines" {
-					self.terminating_newlines = self.tokens[token_index+1].value.parse::<u32>().unwrap();
-				} else if self.tokens[token_index].value == "print_sep_spaces" {
-					self.print_sep_spaces = self.tokens[token_index+1].value.parse::<u32>().unwrap();
+			if token.id == MET {
+				if token.value == "terminating_newlines" {
+					self.terminating_newlines = tokens[token_index+1].value.parse::<u32>().unwrap();
+				} else if token.value == "print_sep_spaces" {
+					self.print_sep_spaces = tokens[token_index+1].value.parse::<u32>().unwrap();
 				}
 			// handle keywords
-			} else if self.tokens[token_index].id == KEY { 
-				if self.tokens[token_index].value == "print" {
-					let x : usize = self.printop(token_index);
-					token_index = x;
-				} else if self.tokens[token_index].value == "dumpscope" {
-					let x : usize = self.dumpscope(token_index);
-					token_index = x;
+			} else if token.id == KEY { 
+				if token.value == "print" {
+					token_index = self.printop(token_index, &tokens);
+				} else if token.value == "log" {
+					print!("\x1b[38;2;64;175;255m");
+					token_index = self.printop(token_index, &tokens);
+					print!("\x1b[39m");
+				} else if token.value == "return" {
+					return tokens[token_index+1].clone();
+				} else if token.value == "dumpscope" {
+					token_index = self.dumpscope(token_index, &tokens);
+				} else if token.value == "global" {
+					if tokens[token_index+1].id == REF {
+						self.memory.flag_var(tokens[token_index+1].value.clone(), 3u8);
+					}
+				} else if token.value == "local" {
+					if tokens[token_index+1].id == REF {
+						self.memory.flag_var(tokens[token_index+1].value.clone(), 0u8);
+					}
+				} else if token.value == "rm" {
+					println!("rm");
+					self.memory.rm(&tokens[token_index+1].value);
+					token_index += 1;
+				} else if token.value == "garbage" {
+					println!("garbage");
+					self.memory.garbage(&tokens[token_index+1].value);
+					token_index += 1;
 				}
 			// handle variable assignment
-			} else if self.tokens[token_index].id == ASS {
-				let varname = &self.tokens[token_index-1].value;
-				let operand = &self.tokens[token_index].value;
+			} else if token.id == ASS {
+				let varname = &tokens[token_index-1].value;
+				let operand = &token.value;
 				// seperate simple assignment from modification to a value
 				if operand == "=" {
-					self.memory.set(varname, self.tokens[token_index+1].clone());
+					self.memory.set(varname, tokens[token_index+1].clone());
 				} else {
-					self.memory.set(varname, self.assignment_operation(&operand, self.memory.get(varname).value, self.tokens[token_index+1].value.clone()));
+					self.memory.set(varname, self.assignment_operation(&operand, self.memory.get(varname).value, tokens[token_index+1].value.clone()));
 				}
+			// handle function initialization
+			} else if token.id == FUN {
+				self.memory.set(&token.value, token.clone());
+			// handle function calls
+			} else if token_index > 0 && self.deref(tokens[token_index-1].clone()).id == FUN && token.id == PAR {
+				token_index = self.func_call(token_index, &mut tokens);
+				tokens_length = tokens.len();
 			}
 			token_index += 1;
 		}
+		return self.UDFTOK.clone();
+	}
+	fn run (&mut self) -> u8 {
+		self.memory.new_scope();
+		self.eval(self.tokens.clone());
 		return 0;
 	}
 }

@@ -179,6 +179,49 @@ fn process_grp (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 	}
 }
 
+fn process_fun (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
+	let mut f : Token = Token::new(FUN, tokens[i+1].value.clone(), LIST_TOKEN);
+	let mut depth : u32 = 0;
+	tokens.remove(i);
+	tokens.remove(i);
+	tokens.remove(i);
+	loop {
+		if i >= tokens.len() {
+			panic!("function def end not found");
+		}
+		if tokens[i].id == PAR && tokens[i].value == ")" {
+			tokens.remove(i);
+			f.push(Token::news(SEP, "*", BASE_TOKEN));
+			break;
+		}
+		f.push(tokens.remove(i));
+	}
+	loop {
+		if i >= tokens.len() {
+			panic!("function end not found");
+		}
+		if tokens[i].id == GRP {
+			if tokens[i].value == "}" {
+				depth -= 1;
+				if depth == 0 {
+					tokens.remove(i);
+					break;
+				}
+			} else if tokens[i].value == "{" {
+				depth += 1;
+				if depth == 1 {
+					tokens.remove(i);
+					continue;
+				}
+			}
+		}
+		f.push(tokens.remove(i));
+	}
+	println!("{}", f.value);
+	printlst::<Token>(&f.list.as_ref().unwrap());
+	return (i, tokens, f);
+}
+
 pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
 	let mut fv : Vec<Token> = Vec::new();
 	let mut i : usize = 0;
@@ -193,6 +236,13 @@ pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
 			tokens = x.1;
 			l = tokens.len();
 			// printv!(&x.2);
+			fv.push(x.2);
+			continue;
+		} else if tokens[i].id == KEY && tokens[i].value == "func" {
+			let x : (usize, Vec<Token>, Token) = process_fun(i, tokens);
+			i = x.0;
+			tokens = x.1;
+			l = tokens.len();
 			fv.push(x.2);
 			continue;
 		} else {
@@ -242,7 +292,7 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 			if i >= line_len {
 				break 'inner;
 			}
-			if line[i] == ' ' {
+			if line[i] == ' ' || line[i] == '\t' {
 				i += 1;
 				continue;
 			}

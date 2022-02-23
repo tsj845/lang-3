@@ -1,0 +1,130 @@
+## DATA TYPES ##
+- strings
+- numbers
+- lists
+- dictionaries
+- functions
+
+## INSTANCIATING PRIMITIVES ##
+### strings ###
+use double quotes: ""
+
+### numbers ###
+type a number
+optionally use either "0x" or "0b" to make the number hex or binary respectively !!!not fully implemented
+
+### lists ###
+open with"$[" close with "]"
+
+### dictionaries ###
+open with "${" close with "}"
+
+### functions ###
+follow the format:
+
+func my_function (arg1, arg2) {
+	// do something
+}
+
+## PROGRAM OPTIONS ##
+usage: "#[program_option=option_value]"
+values MUST be literals, they can not be references
+
+### trailing newlines ###
+"trailing_newlines"
+
+controls the number of newlines printed after each print statement, must be a u32
+
+### print sep spaces ###
+"print_sep_spaces"
+
+controls the number of spaces added after each item in a print statement, must be a u32
+
+# KEYWORDS #
+- print
+- log
+- of
+- func
+- global
+- local
+- dumpscope
+- rm
+- garbage
+
+## print ##
+prints the given tokens, will convert from references to the values they reference and will evaluate expressions
+
+expressions are comma seperated
+
+a semi-colon is required for every print statement except the last in a code block as print statements are greedy and will consume all tokens up to either EOF or a semi-colon
+
+example:
+print "Hello,", "World!";
+
+## log ##
+literally is the same thing as print except the text is a different color, use this for debugging in seas of print statements
+
+all quirks and conditions are the same as print
+
+## of ##
+allows the accessing of elements in data structures
+
+example:
+lst = $["a", "b", "c"]
+
+print 0 of lst; // "a"
+
+## func ##
+see the funtion definition in the data types section
+
+## global ##
+ensures the program accesses the top level scope when reading and writing to a variable
+
+example:
+global x;
+x = 5;
+// -- or --
+global x = 5;
+
+## local ##
+use this to revert global status on variables, all variables are local by default
+
+## dumpscope ##
+dumps one or all variable scopes
+
+example:
+dumpscope 0; // dumps global scope
+dumpscope 1; // dumps local scope
+dumpscope 2; // dumps every scope
+
+## rm ##
+deletes a variable from the scope which it would normally be accessed from
+
+example:
+x = 5; // put x in local scope
+
+global x = 2; // make another version of x in global scope
+
+print x; // 2
+
+rm x;
+
+print x; // 5
+
+## garbage ##
+runs through all scopes deleting all occurrences of the target variable
+
+example:
+x = 2;
+
+global x = 4;
+
+func y () {
+	local x = 3;
+	
+	dumpscopes 2; // 0 : x = 4, 1 : x = 2, 2 : x = 3
+	
+	garbage x;
+	
+	print x; // UDF
+}

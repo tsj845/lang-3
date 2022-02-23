@@ -3,22 +3,30 @@
 
 print "Hello, World!";
 
-xyz = $["x", "y", "z"]
-abc = ${1:"a", 2:"b", 3:"c"}
+x = 3;
 
-testing = ${"X":"Y"}
+global x = 2;
 
-print "printing 'testing': ", "X" of testing;
+rm x;
 
-x = 2
+func tester () {
+	local x = 5;
+	print "test";
+	print x;
+	global x;
+	print x;
+	log "dumping from inside function";
+	dumpscope 2;
+	print "";
+}
 
-x /= 2
+garbage x;
 
-op_code = "NUL = 0"
+tester()
 
-print "expression testing: ", x, " ", x + 2 + 3 * 8;
-print "printing 'op_code': ", op_code;
-print "printing from dictionary 'abc': " , 1 of abc, ", ", 2 of abc, ", ", 3 of abc;
-print "printing from list 'xyz': " , 0 of xyz, ", ", 1 of xyz, ", ", 2 of xyz;
+print x;
+
+#[terminating_newlines=1]
+log "MAIN PROGRAM DUMP";
 
 dumpscope 2;
