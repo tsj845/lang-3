@@ -58,7 +58,7 @@ pub const GRP : u8 = 13;
 pub const NLN : u8 = 14;
 pub const UDF : u8 = 15;
 pub const TOKEN_ARRAY : [&str; 16] = ["NUL", "FUN", "REF", "LIT", "KEY", "MAT", "LOG", "ASS", "PAR", "LST", "DCT", "SEP", "SYM", "GRP", "NLN", "UDF"];
-pub const FILE_EXT : &str = ".fpp";
+pub const FILE_EXT : &str = ".ihl";
 
 // program keywords
 pub const KEYWORDS : [&str; 6] = ["gloabl", "local", "func", "print", "of", "dumpscope"];
