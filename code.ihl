@@ -3,6 +3,10 @@ print "Hello, World", "I'm very...\n ...pleased!!!";
 xyz = $["x", "y", "z"]
 abc = ${1:"a", 2:"b", 3:"c"}
 
+testing = {"X":"Y"}
+
+print testing;
+
 x = 2
 
 x /= 2

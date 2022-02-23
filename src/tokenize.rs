@@ -4,7 +4,7 @@ use regex::Regex;
 use lazy_static::lazy_static;
 
 use crate::statics::*;
-use crate::printv;
+// use crate::printv;
 
 fn get_complement_surround (given : char) -> char {
 	match given {
@@ -167,7 +167,7 @@ pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
 		}
 		i += 1;
 	}
-	printlst::<Token>(&fv);
+	// printlst::<Token>(&fv);
 	return fv;
 }
 

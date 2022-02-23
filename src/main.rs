@@ -1,7 +1,6 @@
-#[macro_use] extern crate lang_1 as this;
-// extern crate regex;
+#![allow(non_snake_case)]
+extern crate lang_1 as this;
 
-// use std::fmt;
 use std::fs::File;
 use std::io::Read;
 use this::statics::*;
@@ -193,18 +192,11 @@ impl Parser {
 		return i;
 	}
 	fn parse_of (&self, i : usize) -> Token {
-		// println!("\x1b[38;2;0;255;0mDEBUG: {}\x1b[39m", i);
-		let mut f : Option<Token> = None;
 		let mut t : Token = self.tokens[i+1].clone();
 		if t.id == REF {
 			t = self.deref(t);
 		}
-		if t.tt() == LIST_TOKEN {
-			f = Some(t.get(self.tokens[i-1].value.parse::<usize>().unwrap()));
-		} else {
-			f = Some(t.getd(self.tokens[i-1].value.clone()));
-		}
-		return f.unwrap();
+		return match t.tt() {LIST_TOKEN => t.get(self.tokens[i-1].value.parse::<usize>().unwrap()), _ => t.getd(self.tokens[i-1].value.clone())};
 	}
 	fn run (&mut self) -> u8 {
 		let mut token_index : usize = 0;
