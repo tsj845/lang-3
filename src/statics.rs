@@ -61,7 +61,7 @@ pub const TOKEN_ARRAY : [&str; 16] = ["NUL", "FUN", "REF", "LIT", "KEY", "MAT", 
 pub const FILE_EXT : &str = ".fpp";
 
 // program keywords
-pub const KEYWORDS : [&str; 4] = ["gloabl", "local", "func", "print"];
+pub const KEYWORDS : [&str; 6] = ["gloabl", "local", "func", "print", "of", "dumpscope"];
 
 // tokenization regex patterns
 pub const WORD_RE_PAT : &str = r"[[:alpha:]]+[[:word:]]*";
@@ -69,9 +69,9 @@ pub const CONTAINER_RE_PAT : &str = r#"[{\["(]"#;
 pub const NUMBER_RE_PAT : &str = r"0b[01]+|0x[0-9a-f]+|[0-9]+(\.[0-9]{1,})?";
 pub const LITERAL_RE_PAT : &str = r"true|false|null";
 pub const PAREN_RE_PAT : &str = r"[()]";
-pub const GROUP_RE_PAT : &str = r"[{}\[\]]";
+pub const GROUP_RE_PAT : &str = r"$?[{}\[\]]";
 pub const SEPER_RE_PAT : &str = r"[:,]";
-pub const KEYWD_RE_PAT : &str = r"global|local|func|print";
+pub const KEYWD_RE_PAT : &str = r"global|local|func|print|of|dumpscope";
 pub const ASIGN_RE_PAT : &str = r"=";
 pub const MATHM_RE_PAT : &str = r"[-+*/]";
 pub const TOKEN_STR_RE_PAT : &str = r#"".*""#;
@@ -126,6 +126,9 @@ impl Token {
 	}
 	pub fn news (id : u8, value : &str, tt : u8) -> Token {
 		return Token::new(id, value.to_string(), tt);
+	}
+	pub fn tt (&self) -> u8 {
+		return self.tt;
 	}
 }
 

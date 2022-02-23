@@ -11,6 +11,27 @@ impl VarScopes {
 			scopes : vec![HashMap::new()],
 		}
 	}
+	fn dumpscope (&self, index : usize) {
+		println!("dumping var scope {}", index);
+		for (key, val) in &self.scopes[index] {
+			println!("{} : {}", key, val);
+		}
+	}
+	pub fn dump (&self, sid : usize) {
+		if sid == 2 {
+			let mut i : usize = 0;
+			let l = self.scopes.len();
+			loop {
+				if i >= l {
+					break;
+				}
+				self.dumpscope(i);
+				i += 1;
+			}
+		} else {
+			self.dumpscope(sid);
+		}
+	}
 	pub fn write_to_scope (&mut self, mut id : usize, name : &str, value : Token) {
 		if id > 1 {
 			panic!("invalid scope id");

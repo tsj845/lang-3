@@ -154,8 +154,11 @@ impl Parser {
 					if copt == self.UDFTOK {
 						copt = self.tokens[i].clone();
 					} else {
-						if self.tokens[i].id > 6 || self.tokens[i].id < 5 {
+						if (self.tokens[i].id > 6 || self.tokens[i].id < 5) && (self.tokens[i].id != KEY || self.tokens[i].value != "of") {
 							copt = self.tokens[i].clone();
+						} else if self.tokens[i].id == KEY {
+							copt = self.parse_of(i);
+							i += 1;
 						} else {
 							copt = self.gen_op(copt, self.tokens[i].clone(), self.tokens[i+1].clone());
 							i += 1;
@@ -166,12 +169,42 @@ impl Parser {
 				if copt.id == REF {
 					copt = self.deref(copt);
 				}
+				let b : Vec<char> = copt.value.chars().collect();
+				if b[0] == '"' && b[b.len()-1] == '"' {
+					copt.value = copt.value[1..copt.value.len()-1].to_string();
+				}
 				print!("{} ", copt.value);
 			}
 			i += 1;
 		}
 		println!("");
 		return i;
+	}
+	fn dumpscope (&self, mut i : usize) -> usize {
+		i += 1;
+		let c = self.tokens[i].value.clone();
+		if c == "0" {
+			self.memory.dump(0);
+		} else if c == "1" {
+			self.memory.dump(1);
+		} else if c == "2" {
+			self.memory.dump(2);
+		}
+		return i;
+	}
+	fn parse_of (&self, i : usize) -> Token {
+		// println!("\x1b[38;2;0;255;0mDEBUG: {}\x1b[39m", i);
+		let mut f : Option<Token> = None;
+		let mut t : Token = self.tokens[i+1].clone();
+		if t.id == REF {
+			t = self.deref(t);
+		}
+		if t.tt() == LIST_TOKEN {
+			f = Some(t.get(self.tokens[i-1].value.parse::<usize>().unwrap()));
+		} else {
+			f = Some(t.getd(self.tokens[i-1].value.clone()));
+		}
+		return f.unwrap();
 	}
 	fn run (&mut self) -> u8 {
 		let mut token_index : usize = 0;
@@ -184,6 +217,9 @@ impl Parser {
 			if self.tokens[token_index].id == KEY { 
 				if self.tokens[token_index].value == "print" {
 					let x : usize = self.printop(token_index);
+					token_index = x;
+				} else if self.tokens[token_index].value == "dumpscope" {
+					let x : usize = self.dumpscope(token_index);
 					token_index = x;
 				}
 			// handle variable assignment

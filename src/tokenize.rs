@@ -89,10 +89,38 @@ fn get_word (mut i : usize, line_str : String) -> (usize, String) {
 }
 
 fn process_grp (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
-	if tokens[i].value == "{" || tokens[i].value == "}" {
-		let x = tokens[i].clone();
-		return (i+1, tokens, x);
-	} else if tokens[i].value == "[" {
+	if tokens[i].value == "${" {
+		// let x = tokens[i].clone();
+		// return (i+1, tokens, x);
+		let mut lst : Vec<Token> = Vec::new();
+		tokens.remove(i);
+		loop {
+			if i >= tokens.len() {
+				panic!("GRP finding out of bounds");
+			}
+			if tokens[i].value == "}" {
+				tokens.remove(i);
+				break;
+			} else {
+				lst.push(tokens.remove(i));
+			}
+		}
+		let mut f : Token = Token::news(DCT, "DCT", DICT_TOKEN);
+		let mut c : usize = 0;
+		let l = lst.len();
+		loop {
+			if c >= l {
+				break;
+			}
+			if lst[c].id == SEP {
+				f.setd(lst[c-1].value.clone(), lst[c+1].clone());
+				c += 1;
+			}
+			c += 1;
+		}
+		return (i, tokens, f);
+	} else if tokens[i].value == "$[" {
+		tokens.remove(i);
 		let mut lst : Vec<Token> = Vec::new();
 		loop {
 			if i >= tokens.len() {
@@ -105,7 +133,7 @@ fn process_grp (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 				lst.push(tokens.remove(i));
 			}
 		}
-		let mut f : Token = Token::new(LST, "LST".to_string(), LIST_TOKEN);
+		let mut f : Token = Token::news(LST, "LST", LIST_TOKEN);
 		for t in lst {
 			if t.id != SEP {
 				f.push(t.clone());
@@ -113,7 +141,8 @@ fn process_grp (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 		}
 		return (i, tokens, f);
 	} else {
-		panic!("unkown GRP token");
+		let f = tokens[i].clone();
+		return (i+1, tokens, f);
 	}
 }
 
@@ -125,7 +154,7 @@ pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
 		if i >= l {
 			break;
 		}
-		if tokens[i].id == GRP {
+		if tokens[i].id == GRP && tokens[i].value.chars().nth(0).unwrap() == '$' {
 			let x : (usize, Vec<Token>, Token) = process_grp(i, tokens);
 			i = x.0;
 			tokens = x.1;
@@ -204,6 +233,9 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 					v += &line[i+1].to_string();
 				}
 				words.push(v);
+				i += 1;
+			} else if line[i] == '$' {
+				words.push(line[i].to_string() + &line[i+1].to_string());
 				i += 1;
 			} else {
 				words.push(line[i].to_string());
