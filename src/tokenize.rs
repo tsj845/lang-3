@@ -88,6 +88,39 @@ fn get_word (mut i : usize, line_str : String) -> (usize, String) {
 	return (i, word);
 }
 
+fn get_meta (mut i : usize, line_str : String) -> (usize, String, String) {
+	i += 2;
+	let mut meta : String = String::new();
+	let mut value : String = String::new();
+	let line : Vec<char> = line_str.chars().collect();
+	let line_len : usize = line.len();
+	loop {
+		if i >= line_len {
+			break;
+		}
+		if line[i] == '=' {
+			break;
+		}
+		meta.push(line[i].clone());
+		i += 1;
+	}
+	loop {
+		if i >= line_len {
+			break;
+		}
+		if line[i] == '=' {
+			i += 1;
+			continue;
+		}
+		if line[i] == ']' {
+			break;
+		}
+		value.push(line[i].clone());
+		i += 1;
+	}
+	return (i+1, meta, value);
+}
+
 fn process_grp (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
 	if tokens[i].value == "${" {
 		// let x = tokens[i].clone();
@@ -213,7 +246,12 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 				i += 1;
 				continue;
 			}
-			if line[i] == ';' {
+			if i == 0 && line[i] == '#' {
+				let x : (usize, String, String) = get_meta(i, lines[line_index].to_string());
+				words.push(String::from("#") + &x.1);
+				words.push(x.2);
+				i = x.0;
+		 	} else if line[i] == ';' {
 				words.push(String::from(";"));
 			} else if line[i] == '"' {
 				let x : (usize, String) = get_containing(i, line[i].clone(), get_complement_surround(line[i].clone()), lines[line_index].to_string());
@@ -246,7 +284,9 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 	}
 	let mut tokens : Vec<Token> = Vec::new();
 	for word in words {
-		if word == ";" {
+		if word.chars().nth(0).unwrap() == '#' {
+			tokens.push(Token::news(MET, &word[1..], BASE_TOKEN));
+		} else if word == ";" {
 			tokens.push(Token::new(NLN, word, BASE_TOKEN));
 		} else if word.starts_with('"') || NUMBER_RE.is_match(&word) || LITERAL_RE.is_match(&word) {
 			tokens.push(Token::new(LIT, word, BASE_TOKEN));

@@ -57,7 +57,8 @@ pub const SYM : u8 = 12;
 pub const GRP : u8 = 13;
 pub const NLN : u8 = 14;
 pub const UDF : u8 = 15;
-pub const TOKEN_ARRAY : [&str; 16] = ["NUL", "FUN", "REF", "LIT", "KEY", "MAT", "LOG", "ASS", "PAR", "LST", "DCT", "SEP", "SYM", "GRP", "NLN", "UDF"];
+pub const MET : u8 = 16;
+pub const TOKEN_ARRAY : [&str; 17] = ["NUL", "FUN", "REF", "LIT", "KEY", "MAT", "LOG", "ASS", "PAR", "LST", "DCT", "SEP", "SYM", "GRP", "NLN", "UDF", "MET"];
 pub const FILE_EXT : &str = ".ihl";
 
 // program keywords

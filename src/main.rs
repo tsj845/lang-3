@@ -15,6 +15,8 @@ struct Parser {
 	memory : VarScopes,
 	SEPTOK : Token,
 	UDFTOK : Token,
+	terminating_newlines : u32,
+	print_sep_spaces : u32,
 }
 
 impl Parser {
@@ -24,6 +26,8 @@ impl Parser {
 			memory : VarScopes::new(),
 			SEPTOK : Token::news(SEP, ",", BASE_TOKEN),
 			UDFTOK : Token::news(UDF, "UDF", BASE_TOKEN),
+			terminating_newlines : 1,
+			print_sep_spaces : 1,
 		}
 	}
 	fn __fault (&self) -> Token {
@@ -172,11 +176,11 @@ impl Parser {
 				if b[0] == '"' && b[b.len()-1] == '"' {
 					copt.value = copt.value[1..copt.value.len()-1].to_string();
 				}
-				print!("{} ", copt.value);
+				print!("{}{}", copt.value, String::from(" ").repeat(self.print_sep_spaces as usize));
 			}
 			i += 1;
 		}
-		println!("");
+		print!("{}", String::from("\n").repeat(self.terminating_newlines as usize));
 		return i;
 	}
 	fn dumpscope (&self, mut i : usize) -> usize {
@@ -205,8 +209,15 @@ impl Parser {
 			if token_index >= tokens_length {
 				break;
 			}
+			// meta properties
+			if self.tokens[token_index].id == MET {
+				if self.tokens[token_index].value == "terminating_newlines" {
+					self.terminating_newlines = self.tokens[token_index+1].value.parse::<u32>().unwrap();
+				} else if self.tokens[token_index].value == "print_sep_spaces" {
+					self.print_sep_spaces = self.tokens[token_index+1].value.parse::<u32>().unwrap();
+				}
 			// handle keywords
-			if self.tokens[token_index].id == KEY { 
+			} else if self.tokens[token_index].id == KEY { 
 				if self.tokens[token_index].value == "print" {
 					let x : usize = self.printop(token_index);
 					token_index = x;
@@ -238,7 +249,7 @@ fn main () {
 	let contents: Vec<_> = contents.split("\n").collect();
 	let tokens : Vec<Token> = tokenize(contents);
 	let mut program : Parser = Parser::new(tokens);
-	println!("\nprogram output:\n");
+	println!("\n\x1b[38;2;0;255;0mprogram output:\x1b[39m\n");
 	program.run();
 	println!("\n\n");
 }

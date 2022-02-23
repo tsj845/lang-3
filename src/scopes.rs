@@ -12,7 +12,7 @@ impl VarScopes {
 		}
 	}
 	fn dumpscope (&self, index : usize) {
-		println!("dumping var scope {}", index);
+		println!("\x1b[38;2;202;78;202mdumping\x1b[39m var scope \x1b[38;2;25;150;255m{}\x1b[0m:", index);
 		for (key, val) in &self.scopes[index] {
 			println!("{} : {}", key, val);
 		}
