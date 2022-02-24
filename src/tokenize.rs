@@ -291,6 +291,9 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 				i += 1;
 				continue;
 			}
+			if line_len > i+1 && line[i] == '/' && line[i+1] == '/' {
+				break;
+			}
 			if i == 0 && line[i] == '#' {
 				let x : (usize, String, String) = get_meta(i, lines[line_index].to_string());
 				words.push(String::from("#") + &x.1);
