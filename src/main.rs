@@ -1,11 +1,12 @@
 #![allow(non_snake_case)]
-extern crate lang_1 as this;
+#[macro_use] extern crate lang_1 as this;
 
 use std::fs::File;
 use std::io::Read;
 use this::statics::*;
 use this::scopes::*;
 use this::tokenize::*;
+use this::static_colors::*;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashMap;
@@ -98,6 +99,9 @@ impl Parser {
 		return self.operation(&operand.chars().collect::<Vec<char>>()[0].to_string(), v1, v2);
 	}
 	fn deref (&self, mut t : Token) -> Token {
+		if t.value.starts_with('$') {
+			t.value = String::from(&t.value[1..]);
+		}
 		let mut names : HashMap<String, u8> = HashMap::new();
 		loop {
 			if t.id != REF {
@@ -107,6 +111,20 @@ impl Parser {
 				return self.__fault();
 			}
 			t = self.memory.get(&t.value);
+		}
+	}
+	fn derefb (&self, t : &Token) -> Token {
+		let mut names : HashMap<String, u8> = HashMap::new();
+		names.insert(t.value.clone(), 0);
+		let mut r : Token = self.memory.get(&t.value);
+		loop {
+			if r.id != REF {
+				return r;
+			}
+			if names.insert(r.value.clone(), 0).is_some() {
+				return self.__fault();
+			}
+			r = self.memory.get(&r.value);
 		}
 	}
 	fn gen_op (&self, mut t1 : Token, t2 : Token, mut t3 : Token) -> Token {
@@ -205,12 +223,11 @@ impl Parser {
 		return match t.tt() {LIST_TOKEN => t.get(self.tokens[i-1].value.parse::<usize>().unwrap()), _ => t.getd(self.tokens[i-1].value.clone())};
 	}
 	fn func_call (&mut self, i : usize, tokens : &mut Vec<Token>) -> usize {
-		let t : Vec<Token> = self.deref(tokens[i-1].clone()).list.as_ref().unwrap().clone();
-		let l = tokens.len();
+		let t : Vec<Token> = self.derefb(&tokens[i-1]).list.as_ref().unwrap().clone();
 		let mut depth = 0;
 		let mut atoks : Vec<Token> = Vec::new();
 		loop {
-			if i >= l {
+			if i >= tokens.len() {
 				break;
 			}
 			if tokens[i].id == PAR {
@@ -221,14 +238,18 @@ impl Parser {
 					}
 					atoks.push(tokens.remove(i));
 				} else if tokens[i].value == "(" {
-					atoks.push(tokens.remove(i));
 					depth += 1;
+					if depth > 1 {
+						atoks.push(tokens.remove(i));
+					} else {
+						tokens.remove(i);
+					}
 				}
 			} else {
 				atoks.push(tokens.remove(i));
 			}
-			// i += 1;
 		}
+		tokens.remove(i-1);
 		self.memory.new_scope();
 		let mut j : usize = 0;
 		let k = t.len();
@@ -262,7 +283,7 @@ impl Parser {
 			self.memory.set(&vname, self.eval_exp(atoksn));
 			j += 1;
 		}
-		tokens[i] = self.eval(t);
+		tokens[i-1] = self.eval(t);
 		self.memory.rem_scope();
 		return i;
 	}
@@ -289,11 +310,19 @@ impl Parser {
 				if token.value == "print" {
 					token_index = self.printop(token_index, &tokens);
 				} else if token.value == "log" {
-					print!("\x1b[38;2;64;175;255m");
+					print!("{}", DEBUG_BLUE_PROGRAM_LOG);
 					token_index = self.printop(token_index, &tokens);
 					print!("\x1b[39m");
 				} else if token.value == "return" {
-					return tokens[token_index+1].clone();
+					let mut r : Token = tokens[token_index+1].clone();
+					if self.derefb(&r).id == FUN && tokens[token_index+2].id == PAR && tokens[token_index+2].value == "(" {
+						self.func_call(token_index+2, &mut tokens);
+						r = tokens[token_index+1].clone();
+					}
+					if r.id == REF && r.value.starts_with('$') {
+						r = self.deref(r);
+					}
+					return r;
 				} else if token.value == "dumpscope" {
 					token_index = self.dumpscope(token_index, &tokens);
 				} else if token.value == "global" {
@@ -305,21 +334,30 @@ impl Parser {
 						self.memory.flag_var(tokens[token_index+1].value.clone(), 0u8);
 					}
 				} else if token.value == "rm" {
-					println!("rm");
 					self.memory.rm(&tokens[token_index+1].value);
 					token_index += 1;
 				} else if token.value == "garbage" {
-					println!("garbage");
-					self.memory.garbage(&tokens[token_index+1].value);
-					token_index += 1;
+					if tokens[token_index+1].id == NLN {
+						self.memory.clear();
+					} else {
+						self.memory.garbage(&tokens[token_index+1].value);
+						token_index += 1;
+					}
 				}
 			// handle variable assignment
 			} else if token.id == ASS {
-				let varname = &tokens[token_index-1].value;
+				let varname = &tokens[token_index-1].clone().value;
 				let operand = &token.value;
 				// seperate simple assignment from modification to a value
 				if operand == "=" {
-					self.memory.set(varname, tokens[token_index+1].clone());
+					let mut r : Token = tokens[token_index+1].clone();
+					if self.derefb(&r).id == FUN && tokens[token_index+2].id == PAR && tokens[token_index+2].value == "(" {
+						self.func_call(token_index+2, &mut tokens);
+						tokens_length = tokens.len();
+						r = tokens[token_index+1].clone();
+						token_index += 1;
+					}
+					self.memory.set(varname, r);
 				} else {
 					self.memory.set(varname, self.assignment_operation(&operand, self.memory.get(varname).value, tokens[token_index+1].value.clone()));
 				}
@@ -327,7 +365,7 @@ impl Parser {
 			} else if token.id == FUN {
 				self.memory.set(&token.value, token.clone());
 			// handle function calls
-			} else if token_index > 0 && self.deref(tokens[token_index-1].clone()).id == FUN && token.id == PAR {
+			} else if token_index > 0 && token.id == PAR && token.value == "(" && self.deref(tokens[token_index-1].clone()).id == FUN {
 				token_index = self.func_call(token_index, &mut tokens);
 				tokens_length = tokens.len();
 			}
@@ -349,7 +387,7 @@ fn main () {
 	let contents: Vec<_> = contents.split("\n").collect();
 	let tokens : Vec<Token> = tokenize(contents);
 	let mut program : Parser = Parser::new(tokens);
-	println!("\n\x1b[38;2;0;255;0mprogram output:\x1b[39m\n");
+	println!("\n{}program output:\x1b[39m\n", INTERPRETER_LIME);
 	program.run();
 	println!("\n\n");
 }

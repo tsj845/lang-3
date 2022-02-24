@@ -1,4 +1,5 @@
 use crate::statics::{Token, UDF, BASE_TOKEN};
+use crate::static_colors::*;
 use std::collections::HashMap;
 
 /**
@@ -24,7 +25,7 @@ impl VarScopes {
 		}
 	}
 	fn dumpscope (&self, index : usize) {
-		println!("\n\x1b[38;2;202;78;202mdumping\x1b[39m var scope \x1b[38;2;25;150;255m{}\x1b[0m:", index);
+		println!("\n{}dumping\x1b[39m var scope {}{}\x1b[0m:", DEBUG_PURPLE, DEBUG_BLUE_SCOPE_DUMP, index);
 		for (key, val) in &self.scopes[index] {
 			println!("{} : {}", key, val);
 		}
@@ -166,6 +167,16 @@ impl VarScopes {
 				break;
 			}
 			self.scopes[i].remove(name);
+			i += 1;
+		}
+	}
+	pub fn clear (&mut self) {
+		let mut i : usize = 0;
+		loop {
+			if i >= self.scope_count {
+				break;
+			}
+			self.scopes[i].clear();
 			i += 1;
 		}
 	}

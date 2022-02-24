@@ -4,7 +4,6 @@ use regex::Regex;
 use lazy_static::lazy_static;
 
 use crate::statics::*;
-// use crate::printv;
 
 fn get_complement_surround (given : char) -> char {
 	match given {
@@ -123,8 +122,6 @@ fn get_meta (mut i : usize, line_str : String) -> (usize, String, String) {
 
 fn process_grp (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
 	if tokens[i].value == "${" {
-		// let x = tokens[i].clone();
-		// return (i+1, tokens, x);
 		let mut lst : Vec<Token> = Vec::new();
 		tokens.remove(i);
 		loop {
@@ -217,8 +214,8 @@ fn process_fun (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 		}
 		f.push(tokens.remove(i));
 	}
-	println!("{}", f.value);
-	printlst::<Token>(&f.list.as_ref().unwrap());
+	// println!("{}", f.value);
+	// printlst::<Token>(&f.list.as_ref().unwrap());
 	return (i, tokens, f);
 }
 
@@ -235,7 +232,6 @@ pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
 			i = x.0;
 			tokens = x.1;
 			l = tokens.len();
-			// printv!(&x.2);
 			fv.push(x.2);
 			continue;
 		} else if tokens[i].id == KEY && tokens[i].value == "func" {
@@ -250,7 +246,6 @@ pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
 		}
 		i += 1;
 	}
-	// printlst::<Token>(&fv);
 	return fv;
 }
 
@@ -323,8 +318,14 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 				words.push(v);
 				i += 1;
 			} else if line[i] == '$' {
-				words.push(line[i].to_string() + &line[i+1].to_string());
-				i += 1;
+				if GROUP_RE.is_match(&line[i+1].to_string()) {
+					words.push(line[i].to_string() + &line[i+1].to_string());
+					i += 1;
+				} else {
+					let x : (usize, String) = get_word(i+1, lines[line_index].to_string());
+					i = x.0;
+					words.push(String::from("$")+&x.1);
+				}
 			} else {
 				words.push(line[i].to_string());
 			}
@@ -358,6 +359,5 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 			tokens.push(Token::new(UDF, word, BASE_TOKEN));
 		}
 	}
-	// printlst::<Token>(&tokens);
 	return preprocess(tokens);
 }

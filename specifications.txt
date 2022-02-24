@@ -31,7 +31,7 @@ usage: "#[program_option=option_value]"
 values MUST be literals, they can not be references
 
 ### trailing newlines ###
-"trailing_newlines"
+"terminating_newlines"
 
 controls the number of newlines printed after each print statement, must be a u32
 
@@ -50,6 +50,7 @@ controls the number of spaces added after each item in a print statement, must b
 - dumpscope
 - rm
 - garbage
+- return
 
 ## print ##
 prints the given tokens, will convert from references to the values they reference and will evaluate expressions
@@ -112,7 +113,7 @@ rm x;
 print x; // 5
 
 ## garbage ##
-runs through all scopes deleting all occurrences of the target variable
+runs through all scopes deleting all occurrences of the target variable, alternatively, if no variable is provided all variable scopes will be cleared of all variables
 
 example:
 x = 2;
@@ -128,3 +129,27 @@ func y () {
 	
 	print x; // UDF
 }
+
+-- or --
+
+x = 0;
+
+func f1 () {
+	print x, y, z; // 0 1 2
+	
+	garbage;
+	
+	print x, y, z; // UDF UDF UDF
+}
+
+func f2 () {
+	y = 1;
+	f1();
+}
+
+func f3 () {
+	z = 2;
+	f2();
+}
+
+f3();

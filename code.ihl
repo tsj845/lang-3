@@ -1,32 +1,30 @@
 #[terminating_newlines=2]
-#[print_sep_spaces=0]
+#[print_sep_spaces=1]
 
 print "Hello, World!";
 
-x = 3;
-
-global x = 2;
-
-rm x;
-
-func tester () {
-	local x = 5;
-	print "test";
-	print x;
-	global x;
-	print x;
-	log "dumping from inside function";
-	dumpscope 2;
-	print "";
+func t1 () {
+	log "t1 activated";
+	return 0;
 }
 
-garbage x;
+func t2 (f) {
+	log "t2 activated";
+	z = f();
+	return $z;
+}
 
-tester()
+x = t2(t1);
 
-print x;
+y = t1();
+
+z = "abc";
+
+garbage;
+
+print x, y, z;
 
 #[terminating_newlines=1]
 log "MAIN PROGRAM DUMP";
 
-dumpscope 2;
+dumpscope 2

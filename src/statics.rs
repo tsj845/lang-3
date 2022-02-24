@@ -62,17 +62,17 @@ pub const TOKEN_ARRAY : [&str; 17] = ["NUL", "FUN", "REF", "LIT", "KEY", "MAT", 
 pub const FILE_EXT : &str = ".ihl";
 
 // program keywords
-pub const KEYWORDS : [&str; 9] = ["gloabl", "local", "func", "print", "of", "dumpscope", "rm", "garbage", "log"];
+pub const KEYWORDS : [&str; 10] = ["gloabl", "local", "func", "print", "of", "dumpscope", "rm", "garbage", "log", "return"];
 
 // tokenization regex patterns
 pub const WORD_RE_PAT : &str = r"[[:alpha:]]+[[:word:]]*";
 pub const CONTAINER_RE_PAT : &str = r#"[{\["(]"#;
-pub const NUMBER_RE_PAT : &str = r"0b[01]+|0x[0-9a-f]+|[0-9]+(\.[0-9]{1,})?";
+pub const NUMBER_RE_PAT : &str = r"^(0b[01]+|0x[0-9a-f]+|[0-9]+(\.[0-9]+)?)";
 pub const LITERAL_RE_PAT : &str = r"true|false|null";
 pub const PAREN_RE_PAT : &str = r"[()]";
 pub const GROUP_RE_PAT : &str = r"$?[{}\[\]]";
 pub const SEPER_RE_PAT : &str = r"[:,]";
-pub const KEYWD_RE_PAT : &str = r"global|local|func|print|of|dumpscope|rm|garbage|log";
+pub const KEYWD_RE_PAT : &str = r"global|local|func|print|of|dumpscope|rm|garbage|log|return";
 pub const ASIGN_RE_PAT : &str = r"=";
 pub const MATHM_RE_PAT : &str = r"[-+*/]";
 pub const TOKEN_STR_RE_PAT : &str = r#"".*""#;
