@@ -24,6 +24,12 @@ garbage;
 
 print x, y, z;
 
+print "\x1b[38;2;0;255;0mtesting ansi\x1b[39m";
+
+"list length"$["a"].length;
+
+dumptoks;
+
 #[terminating_newlines=1]
 log "MAIN PROGRAM DUMP";
 

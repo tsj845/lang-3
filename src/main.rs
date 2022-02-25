@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+#[allow(unused_imports)]
 #[macro_use] extern crate lang_1 as this;
 
 use std::fs::File;
@@ -6,6 +7,7 @@ use std::io::Read;
 use this::statics::*;
 use this::scopes::*;
 use this::tokenize::*;
+use this::method_bindings::*;
 use this::static_colors::*;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -16,6 +18,7 @@ struct Parser {
 	memory : VarScopes,
 	SEPTOK : Token,
 	UDFTOK : Token,
+	BINDINGS : Bindings<'static>,
 	terminating_newlines : u32,
 	print_sep_spaces : u32,
 }
@@ -27,6 +30,7 @@ impl Parser {
 			memory : VarScopes::new(),
 			SEPTOK : Token::news(SEP, ",", BASE_TOKEN),
 			UDFTOK : Token::news(UDF, "UDF", BASE_TOKEN),
+			BINDINGS : Bindings::new(),
 			terminating_newlines : 1,
 			print_sep_spaces : 1,
 		}
@@ -343,6 +347,8 @@ impl Parser {
 						self.memory.garbage(&tokens[token_index+1].value);
 						token_index += 1;
 					}
+				} else if token.value == "dumptoks" {
+					printlst::<Token>(&tokens);
 				}
 			// handle variable assignment
 			} else if token.id == ASS {
@@ -368,6 +374,16 @@ impl Parser {
 			} else if token_index > 0 && token.id == PAR && token.value == "(" && self.deref(tokens[token_index-1].clone()).id == FUN {
 				token_index = self.func_call(token_index, &mut tokens);
 				tokens_length = tokens.len();
+			// handle object properties and methods
+			} else if token.id == DOT && token_index < tokens_length-1 && tokens[token_index+1].id == REF {
+				// println!("{}unchecked binding\x1b[39m", INTERPRETER_DEBUG_BRIGHTPINK);
+				if self.BINDINGS.check_valid(&tokens[token_index-1], &tokens[token_index+1].value) {
+					// println!("{}binding\x1b[39m", INTERPRETER_DEBUG_BRIGHTPINK);
+					tokens[token_index-1] = self.BINDINGS.execute(&tokens[token_index-1], &tokens[token_index+1].value);
+					tokens.remove(token_index);
+					tokens.remove(token_index);
+					tokens_length = tokens.len();
+				}
 			}
 			token_index += 1;
 		}

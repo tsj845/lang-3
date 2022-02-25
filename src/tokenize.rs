@@ -294,7 +294,9 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 			if line_len > i+1 && line[i] == '/' && line[i+1] == '/' {
 				break;
 			}
-			if i == 0 && line[i] == '#' {
+			if line[i] == '.' {
+				words.push(String::from("."));
+			} else if i == 0 && line[i] == '#' {
 				let x : (usize, String, String) = get_meta(i, lines[line_index].to_string());
 				words.push(String::from("#") + &x.1);
 				words.push(x.2);
@@ -338,7 +340,9 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 	}
 	let mut tokens : Vec<Token> = Vec::new();
 	for word in words {
-		if word.chars().nth(0).unwrap() == '#' {
+		if word.chars().nth(0).unwrap() == '.' {
+			tokens.push(Token::new(DOT, word, BASE_TOKEN));
+		} else if word.chars().nth(0).unwrap() == '#' {
 			tokens.push(Token::news(MET, &word[1..], BASE_TOKEN));
 		} else if word == ";" {
 			tokens.push(Token::new(NLN, word, BASE_TOKEN));
