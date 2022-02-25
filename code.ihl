@@ -27,6 +27,7 @@ print x, y, z;
 print "\x1b[38;2;0;255;0mtesting ansi\x1b[39m";
 
 "list length"$["a"].length;
+// $["a"].push("b"); // DOES NOT WORK (AKA BROKEN)
 
 dumptoks;
 

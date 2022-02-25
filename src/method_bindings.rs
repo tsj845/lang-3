@@ -45,28 +45,41 @@ impl Bindings<'_> {
     fn empty (&self) -> Token {
         return self.UDFTOK.clone();
     }
-    pub fn execute (&self, t : &Token, target : &str) -> Token {
+    fn get_value (&self, tokens : &Vec<Token>, i : usize) -> (usize, Token) {
+        if tokens.len() > 0 {
+            return (i, tokens[i+1].clone());
+        }
+        return (i+2, self.empty());
+    }
+    pub fn execute (&self, mut  tokens : Vec<Token>, mut i : usize) -> (usize, Token, Vec<Token>) {
+        let target : &str = &tokens[i+1].value.clone();
+        let t = &tokens[i-1];
         if t.data_type == DT_STR {
             let btype : &&str = self.strings.get(target).unwrap();
             if btype == &"method" {
-                return self.empty();
+                return (i, self.empty(), tokens);
             } else if btype == &"property" {
                 if target == "length" {
-                    return Token::new(LIT, (t.value.len()-2).to_string(), BASE_TOKEN);
+                    return (i, Token::new(LIT, (t.value.len()-2).to_string(), BASE_TOKEN), tokens);
                 }
             }
         }
         if t.data_type == DT_LST {
             let btype : &&str = self.lists.get(target).unwrap();
             if btype == &"method" {
-                return self.empty();
+                if target == "push" {
+                    let x : (usize, Token) = self.get_value(&tokens, i);
+                    i = x.0;
+                    tokens[i-1].push(x.1);
+                }
+                return (i, self.empty(), tokens);
             } else if btype == &"property" {
                 if target == "length" {
-                    return Token::new(LIT, t.length.to_string(), BASE_TOKEN);
+                    return (i, Token::new(LIT, t.length.to_string(), BASE_TOKEN), tokens);
                 }
             }
         }
-        return self.empty();
+        return (i, self.empty(), tokens);
     }
     // checks that the call is valid
     pub fn check_valid (&self, t : &Token, target : &str) -> bool {

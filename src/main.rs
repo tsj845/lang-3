@@ -379,7 +379,10 @@ impl Parser {
 				// println!("{}unchecked binding\x1b[39m", INTERPRETER_DEBUG_BRIGHTPINK);
 				if self.BINDINGS.check_valid(&tokens[token_index-1], &tokens[token_index+1].value) {
 					// println!("{}binding\x1b[39m", INTERPRETER_DEBUG_BRIGHTPINK);
-					tokens[token_index-1] = self.BINDINGS.execute(&tokens[token_index-1], &tokens[token_index+1].value);
+					let x : (usize, Token, Vec<Token>) = self.BINDINGS.execute(tokens.clone(), token_index);
+					tokens = x.2;
+					token_index = x.0;
+					tokens[token_index-1] = x.1;
 					tokens.remove(token_index);
 					tokens.remove(token_index);
 					tokens_length = tokens.len();
