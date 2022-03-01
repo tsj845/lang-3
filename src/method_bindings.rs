@@ -8,7 +8,6 @@ pub struct Bindings<'a> {
     dicts : HashMap<&'a str, &'a str>,
     strings : HashMap<&'a str, &'a str>,
     numbers : HashMap<&'a str, &'a str>,
-    UDFTOK : Token,
 }
 
 impl Bindings<'_> {
@@ -22,16 +21,16 @@ impl Bindings<'_> {
         let mut dd : HashMap<&str, &str> = HashMap::new();
         let mut sd : HashMap<&str, &str> = HashMap::new();
         let mut nd : HashMap<&str, &str> = HashMap::new();
-        for v in lists {
+        for v in lists.iter() {
             ld.insert(v[1], v[0]);
         }
-        for v in dicts {
+        for v in dicts.iter() {
             dd.insert(v[1], v[0]);
         }
-        for v in strings {
+        for v in strings.iter() {
             sd.insert(v[1], v[0]);
         }
-        for v in numbers {
+        for v in numbers.iter() {
             nd.insert(v[1], v[0]);
         }
         Bindings {
@@ -39,48 +38,20 @@ impl Bindings<'_> {
             dicts : dd,
             strings : sd,
             numbers : nd,
-            UDFTOK : Token::news(UDF, "UDF", BASE_TOKEN),
         }
     }
-    fn empty (&self) -> Token {
-        return self.UDFTOK.clone();
-    }
-    fn get_value (&self, tokens : &Vec<Token>, i : usize) -> (usize, Token) {
-        if tokens.len() > 0 {
-            return (i, tokens[i+1].clone());
-        }
-        return (i+2, self.empty());
-    }
-    pub fn execute (&self, mut  tokens : Vec<Token>, mut i : usize) -> (usize, Token, Vec<Token>) {
-        let target : &str = &tokens[i+1].value.clone();
-        let t = &tokens[i-1];
-        if t.data_type == DT_STR {
-            let btype : &&str = self.strings.get(target).unwrap();
-            if btype == &"method" {
-                return (i, self.empty(), tokens);
-            } else if btype == &"property" {
-                if target == "length" {
-                    return (i, Token::new(LIT, (t.value.len()-2).to_string(), BASE_TOKEN), tokens);
-                }
-            }
-        }
-        if t.data_type == DT_LST {
-            let btype : &&str = self.lists.get(target).unwrap();
-            if btype == &"method" {
-                if target == "push" {
-                    let x : (usize, Token) = self.get_value(&tokens, i);
-                    i = x.0;
-                    tokens[i-1].push(x.1);
-                }
-                return (i, self.empty(), tokens);
-            } else if btype == &"property" {
-                if target == "length" {
-                    return (i, Token::new(LIT, t.length.to_string(), BASE_TOKEN), tokens);
-                }
-            }
-        }
-        return (i, self.empty(), tokens);
-    }
+    pub fn get_type (&self, i : u8, t : &str) -> &&str {
+		if i == 0 {
+			return self.strings.get(t).unwrap();
+		} else if i == 1 {
+			return self.lists.get(t).unwrap();
+		} else if i == 2 {
+			return self.dicts.get(t).unwrap();
+		} else if i == 3 {
+			return self.numbers.get(t).unwrap();
+		}
+		return &"";
+	}
     // checks that the call is valid
     pub fn check_valid (&self, t : &Token, target : &str) -> bool {
         println!("{}, {}", t.data_type, target);

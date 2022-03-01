@@ -63,17 +63,18 @@ pub const TOKEN_ARRAY : [&str; 18] = ["NUL", "FUN", "REF", "LIT", "KEY", "MAT", 
 pub const FILE_EXT : &str = ".ihl";
 
 // program keywords
-pub const KEYWORDS : [&str; 11] = ["gloabl", "local", "func", "print", "of", "dumpscope", "rm", "garbage", "log", "return", "dumptoks"];
+pub const KEYWORDS : [&str; 12] = ["gloabl", "local", "func", "print", "of", "dumpscope", "rm", "garbage", "log", "return", "dumptoks", "dumplc"];
 
 // tokenization regex patterns
 pub const WORD_RE_PAT : &str = r"[[:alpha:]]+[[:word:]]*";
 pub const CONTAINER_RE_PAT : &str = r#"[{\["(]"#;
 pub const NUMBER_RE_PAT : &str = r"^(0b[01]+|0x[0-9a-f]+|[0-9]+(\.[0-9]+)?)";
+pub const DECI_RE_PAT : &str = r"[0-9]+\.[0-9]+";
 pub const LITERAL_RE_PAT : &str = r"true|false|null";
 pub const PAREN_RE_PAT : &str = r"[()]";
 pub const GROUP_RE_PAT : &str = r"$?[{}\[\]]";
 pub const SEPER_RE_PAT : &str = r"[:,]";
-pub const KEYWD_RE_PAT : &str = r"global|local|func|print|of|dumpscope|rm|garbage|log|return|dumptoks";
+pub const KEYWD_RE_PAT : &str = r"global|local|func|print|of|dumpscope|rm|garbage|log|return|dumptoks|dumplc";
 pub const ASIGN_RE_PAT : &str = r"=";
 pub const MATHM_RE_PAT : &str = r"[-+*/]";
 pub const TOKEN_STR_RE_PAT : &str = r#"".*""#;
@@ -252,6 +253,16 @@ impl Token {
 		}
 		self.length -= 1;
 		return self.list.as_mut().unwrap().pop().unwrap();
+	}
+	pub fn popitem (&mut self, key : usize) -> Token {
+		if self.tt != LIST_TOKEN {
+			panic!("invalid operation");
+		}
+		if self.length <= key {
+			panic!("index out of range");
+		}
+		self.length -= 1;
+		return self.list.as_mut().unwrap().remove(key);
 	}
 }
 

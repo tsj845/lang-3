@@ -41,10 +41,16 @@ impl Parser {
 	fn addition (&self, v1 : String, v2 : String) -> Token {
 		lazy_static! {
 			static ref NUMBER_RE : Regex = Regex::new(NUMBER_RE_PAT).unwrap();
+			static ref DECI_RE : Regex = Regex::new(DECI_RE_PAT).unwrap();
 		}
 		if NUMBER_RE.is_match(&v1) {
 			if !NUMBER_RE.is_match(&v2) {
 				panic!("mismatched types");
+			}
+			if DECI_RE.is_match(&v1) || DECI_RE.is_match(&v2) {
+				let mut v : f64 = v1.parse().unwrap();
+				v += v2.parse::<f64>().unwrap();
+				return Token::new(LIT, v.to_string(), BASE_TOKEN);
 			}
 			let mut v : i64 = v1.parse().unwrap();
 			v += v2.parse::<i64>().unwrap();
@@ -55,10 +61,16 @@ impl Parser {
 	fn subtraction (&self, v1 : String, v2 : String) -> Token {
 		lazy_static! {
 			static ref NUMBER_RE : Regex = Regex::new(NUMBER_RE_PAT).unwrap();
+			static ref DECI_RE : Regex = Regex::new(DECI_RE_PAT).unwrap();
 		}
 		if !(NUMBER_RE.is_match(&v1) && NUMBER_RE.is_match(&v2)) {
 			return self.__fault();
 		}
+		if DECI_RE.is_match(&v1) || DECI_RE.is_match(&v2) {
+				let mut v : f64 = v1.parse().unwrap();
+				v -= v2.parse::<f64>().unwrap();
+				return Token::new(LIT, v.to_string(), BASE_TOKEN);
+			}
 		let mut v : i64 = v1.parse().unwrap();
 		v -= v2.parse::<i64>().unwrap();
 		return Token::new(LIT, v.to_string(), BASE_TOKEN);
@@ -66,10 +78,16 @@ impl Parser {
 	fn multiplication (&self, v1 : String, v2 : String) -> Token {
 		lazy_static! {
 			static ref NUMBER_RE : Regex = Regex::new(NUMBER_RE_PAT).unwrap();
+			static ref DECI_RE : Regex = Regex::new(DECI_RE_PAT).unwrap();
 		}
 		if NUMBER_RE.is_match(&v1) {
 			if !NUMBER_RE.is_match(&v2) {
 				panic!("mismatched types");
+			}
+			if DECI_RE.is_match(&v1) || DECI_RE.is_match(&v2) {
+				let mut v : f64 = v1.parse().unwrap();
+				v *= v2.parse::<f64>().unwrap();
+				return Token::new(LIT, v.to_string(), BASE_TOKEN);
 			}
 			let mut v : i64 = v1.parse().unwrap();
 			v *= v2.parse::<i64>().unwrap();
@@ -80,10 +98,16 @@ impl Parser {
 	fn division (&self, v1 : String, v2 : String) -> Token {
 		lazy_static! {
 			static ref NUMBER_RE : Regex = Regex::new(NUMBER_RE_PAT).unwrap();
+			static ref DECI_RE : Regex = Regex::new(DECI_RE_PAT).unwrap();
 		}
 		if !(NUMBER_RE.is_match(&v1) && NUMBER_RE.is_match(&v2)) {
 			return self.__fault();
 		}
+		if DECI_RE.is_match(&v1) || DECI_RE.is_match(&v2) {
+				let mut v : f64 = v1.parse().unwrap();
+				v /= v2.parse::<f64>().unwrap();
+				return Token::new(LIT, v.to_string(), BASE_TOKEN);
+			}
 		let v : i64 = v1.parse().unwrap();
 		return Token::new(LIT, (v/v2.parse::<i64>().unwrap()).to_string(), BASE_TOKEN);
 	}
@@ -118,9 +142,16 @@ impl Parser {
 		}
 	}
 	fn derefb (&self, t : &Token) -> Token {
+		if t.id != REF {
+			return t.clone();
+		}
 		let mut names : HashMap<String, u8> = HashMap::new();
-		names.insert(t.value.clone(), 0);
-		let mut r : Token = self.memory.get(&t.value);
+		let mut n : String = t.value.clone();
+		if n.chars().nth(0).unwrap() == '$' {
+			n = String::from(&n[1..]);
+		}
+		names.insert(n.clone(), 0);
+		let mut r : Token = self.memory.get(&n);
 		loop {
 			if r.id != REF {
 				return r;
@@ -220,11 +251,8 @@ impl Parser {
 		return i;
 	}
 	fn parse_of (&self, i : usize, tokens : &Vec<Token>) -> Token {
-		let mut t : Token = tokens[i+1].clone();
-		if t.id == REF {
-			t = self.deref(t);
-		}
-		return match t.tt() {LIST_TOKEN => t.get(self.tokens[i-1].value.parse::<usize>().unwrap()), _ => t.getd(self.tokens[i-1].value.clone())};
+		let t : Token = self.derefb(&tokens[i+1]);
+		return match t.tt() {LIST_TOKEN => t.get(tokens[i-1].value.parse::<usize>().unwrap()), _ => t.getd(tokens[i-1].value.clone())};
 	}
 	fn func_call (&mut self, i : usize, tokens : &mut Vec<Token>) -> usize {
 		let t : Vec<Token> = self.derefb(&tokens[i-1]).list.as_ref().unwrap().clone();
@@ -291,8 +319,37 @@ impl Parser {
 		self.memory.rem_scope();
 		return i;
 	}
-	fn eval_exp (&self, toks : Vec<Token>) -> Token {
-		return toks[0].clone();
+	fn eval_exp (&self, mut toks : Vec<Token>) -> Token {
+		let mut i : usize = 0;
+		loop {
+			if i >= toks.len() {
+				break;
+			}
+			if toks[i].id == REF {
+				if toks[i].value.chars().nth(0).unwrap() == '$' {
+					toks[i] = self.deref(toks[i].clone());
+				}
+			}
+			i += 1;
+		}
+		let mut copt : Token = toks[0].clone();
+		i = 1;
+		let l = toks.len();
+		loop {
+			if i >= l {
+				break;
+			}
+			if toks[i].id == LIT || toks[i].id == REF {
+				copt = self.derefb(&toks[i]).clone();
+			} else if toks[i].id == MAT {
+				copt = self.operation(&toks[i].value, self.derefb(&copt).value, self.derefb(&toks[i+1]).value);
+				i += 1;
+			} else if toks[i].id == LOG {
+				// do logical operations
+			}
+			i += 1;
+		}
+		return copt;
 	}
 	fn eval (&mut self, mut tokens : Vec<Token>) -> Token {
 		let mut token_index : usize = 0;
@@ -349,6 +406,10 @@ impl Parser {
 					}
 				} else if token.value == "dumptoks" {
 					printlst::<Token>(&tokens);
+				} else if token.value == "dumplc" {
+					println!("DUMPLC");
+					printlst::<Token>(&self.derefb(&tokens[token_index+1]).list.as_ref().unwrap());
+					token_index += 1;
 				}
 			// handle variable assignment
 			} else if token.id == ASS {
@@ -365,7 +426,9 @@ impl Parser {
 					}
 					self.memory.set(varname, r);
 				} else {
-					self.memory.set(varname, self.assignment_operation(&operand, self.memory.get(varname).value, tokens[token_index+1].value.clone()));
+					let v2 : String = self.derefb(&tokens[token_index+1]).value;
+					println!("{}v1:{},v2:{},op:{}\x1b[39m", INTERPRETER_DEBUG_ORANGE, self.memory.get(varname).value, v2, operand);
+					self.memory.set(varname, self.assignment_operation(&operand, self.memory.get(varname).value, v2));
 				}
 			// handle function initialization
 			} else if token.id == FUN {
@@ -376,10 +439,10 @@ impl Parser {
 				tokens_length = tokens.len();
 			// handle object properties and methods
 			} else if token.id == DOT && token_index < tokens_length-1 && tokens[token_index+1].id == REF {
-				// println!("{}unchecked binding\x1b[39m", INTERPRETER_DEBUG_BRIGHTPINK);
-				if self.BINDINGS.check_valid(&tokens[token_index-1], &tokens[token_index+1].value) {
-					// println!("{}binding\x1b[39m", INTERPRETER_DEBUG_BRIGHTPINK);
-					let x : (usize, Token, Vec<Token>) = self.BINDINGS.execute(tokens.clone(), token_index);
+				println!("{}unchecked binding\x1b[39m", INTERPRETER_DEBUG_BRIGHTPINK);
+				if self.BINDINGS.check_valid(&self.derefb(&tokens[token_index-1]), &tokens[token_index+1].value) {
+					println!("{}binding\x1b[39m", INTERPRETER_DEBUG_BRIGHTPINK);
+					let x : (usize, Token, Vec<Token>) = self.execute(tokens.clone(), token_index);
 					tokens = x.2;
 					token_index = x.0;
 					tokens[token_index-1] = x.1;
@@ -392,6 +455,94 @@ impl Parser {
 		}
 		return self.UDFTOK.clone();
 	}
+	fn get_value (&self, tokens : &Vec<Token>, mut i : usize) -> (usize, Token) {
+		let mut toks : Vec<Token> = Vec::new();
+		let l = tokens.len();
+		let mut depth : u16 = 0;
+		loop {
+			if i >= l {
+				return (i-1, self.__fault());
+			}
+			if tokens[i].id == PAR {
+				if tokens[i].value == "(" {
+					depth += 1;
+				} else if tokens[i].value == ")" {
+					depth -= 1;
+					if depth == 0 {
+						break;
+					}
+				}
+				if depth > 1 {
+					toks.push(tokens[i].clone());
+				}
+			} else {
+				if depth > 0 {
+					toks.push(tokens[i].clone());
+				}
+			}
+			i += 1;
+		}
+		return (i+1, self.eval_exp(toks));
+	}
+	fn execute (&mut self, mut tokens : Vec<Token>, mut i : usize) -> (usize, Token, Vec<Token>) {
+		println!("{}EXECUTION\x1b[39m", INTERPRETER_DEBUG_BRIGHTPINK);
+        let target : &str = &tokens[i+1].value.clone();
+		let is_ref : bool = tokens[i-1].id == REF;
+		let ov : &str = &tokens[i-1].value.clone();
+        let mut t : Token = match is_ref {false=>tokens[i-1].clone(),true=>self.memory.get(&tokens[i-1].value)};
+		println!("{}IS_REF={}, {}\x1b[39m", INTERPRETER_DEBUG_ORANGE, is_ref, t.value);
+        if t.data_type == DT_STR {
+            let btype : &&str = self.BINDINGS.get_type(0, target);
+            if btype == &"method" {
+				let ret : Token = self.__fault();
+				if is_ref {
+					self.memory.set(ov, t);
+				} else {
+					tokens[i-1] = t;
+				}
+                return (i, ret, tokens);
+            } else if btype == &"property" {
+                if target == "length" {
+                    return (i, Token::new(LIT, (t.value.len()-2).to_string(), BASE_TOKEN), tokens);
+                }
+            }
+        }
+        if t.data_type == DT_LST {
+            let btype : &&str = self.BINDINGS.get_type(1, target);
+            if btype == &"method" {
+				let ret : Token = self.__fault();
+                if target == "push" {
+					println!("{}PUSH EXECUTION\x1b[39m", INTERPRETER_DEBUG_ORANGE);
+                    let x : (usize, Token) = self.get_value(&tokens, i);
+					printlst::<Token>(&tokens);
+					println!("{}, {}", i, t);
+                    i = x.0;
+                    t.push(x.1);
+                }
+				if is_ref {
+					self.memory.set(ov, t);
+				} else {
+					tokens[i-1] = t;
+				}
+                return (i, ret, tokens);
+            } else if btype == &"property" {
+                if target == "length" {
+                    return (i, Token::new(LIT, t.length.to_string(), BASE_TOKEN), tokens);
+                }
+            }
+        }
+		if t.data_type == DT_NUM {
+			let btype : &&str = self.BINDINGS.get_type(3, target);
+			if btype == &"property" {
+				return (i, self.__fault(), tokens);
+			}
+			//
+		}
+		if t.data_type == DT_DCT {
+			//
+		}
+        return (i, self.__fault(), tokens);
+    }
 	fn run (&mut self) -> u8 {
 		self.memory.new_scope();
 		self.eval(self.tokens.clone());

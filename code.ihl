@@ -1,37 +1,32 @@
 #[terminating_newlines=2]
 #[print_sep_spaces=1]
 
-print "Hello, World!";
+la = $["a"];
+b = "c";
 
-func t1 () {
-	log "t1 activated";
-	return 0;
+la.push(b);
+"list length" la.length;
+
+func t (y) {
+	x = 2.5;
+	x *= y;
+	x += 5.5;
+	x -= 3.5;
+	x /= 9;
+	return $x;
 }
 
-func t2 (f) {
-	log "t2 activated";
-	z = f();
-	return $z;
-}
+z = t(100);
 
-x = t2(t1);
+print z;
 
-y = t1();
-
-z = "abc";
-
-garbage;
-
-print x, y, z;
-
-print "\x1b[38;2;0;255;0mtesting ansi\x1b[39m";
-
-"list length"$["a"].length;
-// $["a"].push("b"); // DOES NOT WORK (AKA BROKEN)
+dumplc la;
 
 dumptoks;
+
+print 1 of la;
 
 #[terminating_newlines=1]
 log "MAIN PROGRAM DUMP";
 
-dumpscope 2
+dumpscope 2;

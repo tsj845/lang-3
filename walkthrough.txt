@@ -1,5 +1,0 @@
-Tokens {
-	to conserve memory there are different types of tokens which can be instantiated, base tokens have no special properties, list tokens have a list, and dict tokens have a dictionary
-
-	all tokens have a length property, but this is only used with list tokens
-}
