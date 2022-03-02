@@ -1,3 +1,8 @@
+# COMMENTS #
+- use "//" for a single line comment, may be placed at any point in the line, code before the comment will be executed as normal
+
+- no block comments
+
 ## DATA TYPES ##
 - strings
 - numbers

@@ -1,24 +1,21 @@
 #[terminating_newlines=2]
 #[print_sep_spaces=1]
+#[token_block__NLN=true]
+#[token_block__MET=true]
 
 la = $["a"];
 b = "c";
+c = "d";
 
-la.push(b);
+la.push($b);
+la.push($c);
+la.pop();
 "list length" la.length;
+"DATA CHECK" "012".is_digit();
 
-func t (y) {
-	x = 2.5;
-	x *= y;
-	x += 5.5;
-	x -= 3.5;
-	x /= 9;
-	return $x;
-}
+n = 10;
 
-z = t(100);
-
-print z;
+"NUM TO STRING" n.to_string().is_digit();
 
 dumplc la;
 

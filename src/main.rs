@@ -21,6 +21,7 @@ struct Parser {
 	BINDINGS : Bindings<'static>,
 	terminating_newlines : u32,
 	print_sep_spaces : u32,
+	token_block : HashMap<String, bool>,
 }
 
 impl Parser {
@@ -33,10 +34,20 @@ impl Parser {
 			BINDINGS : Bindings::new(),
 			terminating_newlines : 1,
 			print_sep_spaces : 1,
+			token_block : HashMap::new(),
 		}
 	}
 	fn __fault (&self) -> Token {
 		return Token::new(UDF, String::from("UDF"), BASE_TOKEN);
+	}
+	fn __filter (&self, tokens : &Vec<Token>) -> Vec<Token> {
+		let mut r : Vec<Token> = Vec::new();
+		for tok in tokens {
+			if !(self.token_block.contains_key(TOKEN_ARRAY[tok.id as usize]) && *self.token_block.get(TOKEN_ARRAY[tok.id as usize]).unwrap()) {
+				r.push(tok.clone());
+			}
+		}
+		return r;
 	}
 	fn addition (&self, v1 : String, v2 : String) -> Token {
 		lazy_static! {
@@ -320,6 +331,9 @@ impl Parser {
 		return i;
 	}
 	fn eval_exp (&self, mut toks : Vec<Token>) -> Token {
+		if toks.len() == 0 {
+			return self.__fault();
+		}
 		let mut i : usize = 0;
 		loop {
 			if i >= toks.len() {
@@ -365,6 +379,9 @@ impl Parser {
 					self.terminating_newlines = tokens[token_index+1].value.parse::<u32>().unwrap();
 				} else if token.value == "print_sep_spaces" {
 					self.print_sep_spaces = tokens[token_index+1].value.parse::<u32>().unwrap();
+				} else if token.value.starts_with("token_block__") {
+					let v : &str = &token.value[13..];
+					self.token_block.insert(v.to_string(), tokens[token_index+1].value == "true");
 				}
 			// handle keywords
 			} else if token.id == KEY { 
@@ -405,7 +422,7 @@ impl Parser {
 						token_index += 1;
 					}
 				} else if token.value == "dumptoks" {
-					printlst::<Token>(&tokens);
+					printlst::<Token>(&self.__filter(&tokens));
 				} else if token.value == "dumplc" {
 					println!("DUMPLC");
 					printlst::<Token>(&self.derefb(&tokens[token_index+1]).list.as_ref().unwrap());
@@ -442,12 +459,22 @@ impl Parser {
 				println!("{}unchecked binding\x1b[39m", INTERPRETER_DEBUG_BRIGHTPINK);
 				if self.BINDINGS.check_valid(&self.derefb(&tokens[token_index-1]), &tokens[token_index+1].value) {
 					println!("{}binding\x1b[39m", INTERPRETER_DEBUG_BRIGHTPINK);
+					let oi : usize = token_index-1;
 					let x : (usize, Token, Vec<Token>) = self.execute(tokens.clone(), token_index);
 					tokens = x.2;
 					token_index = x.0;
 					tokens[token_index-1] = x.1;
+					println!("abrem: {}, {}", tokens[token_index], tokens[token_index+1]);
 					tokens.remove(token_index);
 					tokens.remove(token_index);
+					token_index -= 1;
+					loop {
+						if oi >= token_index {
+							break;
+						}
+						tokens.remove(oi);
+						token_index -= 1;
+					}
 					tokens_length = tokens.len();
 				}
 			}
@@ -485,6 +512,10 @@ impl Parser {
 		return (i+1, self.eval_exp(toks));
 	}
 	fn execute (&mut self, mut tokens : Vec<Token>, mut i : usize) -> (usize, Token, Vec<Token>) {
+		lazy_static! {
+			static ref ALPHA_RE : Regex = Regex::new(ALPHA_RE_PAT).unwrap();
+			static ref DIGIT_RE : Regex = Regex::new(DIGIT_RE_PAT).unwrap();
+		}
 		println!("{}EXECUTION\x1b[39m", INTERPRETER_DEBUG_BRIGHTPINK);
         let target : &str = &tokens[i+1].value.clone();
 		let is_ref : bool = tokens[i-1].id == REF;
@@ -494,7 +525,16 @@ impl Parser {
         if t.data_type == DT_STR {
             let btype : &&str = self.BINDINGS.get_type(0, target);
             if btype == &"method" {
-				let ret : Token = self.__fault();
+				let mut ret : Token = self.__fault();
+				if target == "is_alpha" {
+					let x : (usize, Token) = self.get_value(&tokens, i);
+					i = x.0 - 2;
+					ret = Token::new(LIT, ALPHA_RE.is_match(&t.value[1..t.value.len()-1]).to_string(), BASE_TOKEN);
+				} else if target == "is_digit" {
+					let x : (usize, Token) = self.get_value(&tokens, i);
+					i = x.0 - 2;
+					ret = Token::new(LIT, DIGIT_RE.is_match(&t.value[1..t.value.len()-1]).to_string(), BASE_TOKEN);
+				}
 				if is_ref {
 					self.memory.set(ov, t);
 				} else {
@@ -510,15 +550,25 @@ impl Parser {
         if t.data_type == DT_LST {
             let btype : &&str = self.BINDINGS.get_type(1, target);
             if btype == &"method" {
-				let ret : Token = self.__fault();
+				let mut ret : Token = self.__fault();
                 if target == "push" {
 					println!("{}PUSH EXECUTION\x1b[39m", INTERPRETER_DEBUG_ORANGE);
                     let x : (usize, Token) = self.get_value(&tokens, i);
-					printlst::<Token>(&tokens);
+					// printlst::<Token>(&tokens);
 					println!("{}, {}", i, t);
-                    i = x.0;
+                    i = x.0 - 2;
                     t.push(x.1);
-                }
+                } else if target == "pop" {
+					println!("{}POP EXECUTION\x1b[39m", INTERPRETER_DEBUG_ORANGE);
+					let x : (usize, Token) = self.get_value(&tokens, i);
+					i = x.0 - 2;
+					ret = t.pop();
+				} else if target == "remove" {
+					println!("{}REMOVE EXECUTION\x1b[39m", INTERPRETER_DEBUG_ORANGE);
+					let x : (usize, Token) = self.get_value(&tokens, i);
+					i = x.0 - 2;
+					ret = t.popitem(x.1.value.parse::<usize>().unwrap());
+				}
 				if is_ref {
 					self.memory.set(ov, t);
 				} else {
@@ -535,8 +585,13 @@ impl Parser {
 			let btype : &&str = self.BINDINGS.get_type(3, target);
 			if btype == &"property" {
 				return (i, self.__fault(), tokens);
+			} else if btype == &"method" {
+				if target == "to_string" {
+					let x : (usize, Token) = self.get_value(&tokens, i);
+					i = x.0 - 2;
+					return (i, Token::new(LIT, String::from(r#"""#)+&t.value+r#"""#, BASE_TOKEN), tokens);
+				}
 			}
-			//
 		}
 		if t.data_type == DT_DCT {
 			//

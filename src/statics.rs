@@ -45,21 +45,24 @@ pub const NUL : u8 = 0;
 pub const FUN : u8 = 1;
 pub const REF : u8 = 2;
 pub const LIT : u8 = 3;
-pub const KEY : u8 = 4;
-pub const MAT : u8 = 5;
-pub const LOG : u8 = 6;
-pub const ASS : u8 = 7;
-pub const PAR : u8 = 8;
-pub const LST : u8 = 9;
-pub const DCT : u8 = 10;
-pub const SEP : u8 = 11;
-pub const SYM : u8 = 12;
-pub const GRP : u8 = 13;
-pub const DOT : u8 = 14;
-pub const NLN : u8 = 15;
-pub const UDF : u8 = 16;
-pub const MET : u8 = 17;
-pub const TOKEN_ARRAY : [&str; 18] = ["NUL", "FUN", "REF", "LIT", "KEY", "MAT", "LOG", "ASS", "PAR", "LST", "DCT", "SEP", "SYM", "GRP", "DOT", "NLN", "UDF", "MET"];
+pub const IDX : u8 = 4;
+pub const KEY : u8 = 5;
+pub const MAT : u8 = 6;
+pub const LOG : u8 = 7;
+pub const ASS : u8 = 8;
+pub const PAR : u8 = 9;
+pub const LST : u8 = 10;
+pub const DCT : u8 = 11;
+pub const OBJ : u8 = 12;
+pub const SEP : u8 = 13;
+pub const SYM : u8 = 14;
+pub const GRP : u8 = 15;
+pub const DOT : u8 = 16;
+pub const CTL : u8 = 17;
+pub const NLN : u8 = 18;
+pub const UDF : u8 = 19;
+pub const MET : u8 = 20;
+pub const TOKEN_ARRAY : [&str; 21] = ["NUL", "FUN", "REF", "LIT", "IDX", "KEY", "MAT", "LOG", "ASS", "PAR", "LST", "DCT", "OBJ", "SEP", "SYM", "GRP", "DOT", "CTL", "NLN", "UDF", "MET"];
 pub const FILE_EXT : &str = ".ihl";
 
 // program keywords
@@ -81,6 +84,10 @@ pub const TOKEN_STR_RE_PAT : &str = r#"".*""#;
 pub const TOKEN_BIN_NUM_RE_PAT : &str = r"^0b[01]+";
 pub const TOKEN_HEX_NUM_RE_PAT : &str = r"^0x[0-9a-f]+";
 pub const TOKEN_DEC_NUM_RE_PAT : &str = r"^[0-9]+(\.[0-9]+)?";
+
+// method supports
+pub const ALPHA_RE_PAT : &str = r"^[a-zA-Z]*$";
+pub const DIGIT_RE_PAT : &str = r"^[0-9]*$";
 
 // data types
 pub const DT_UDF : u8 = 0;
@@ -191,6 +198,9 @@ impl Token {
 // dict methods
 impl Token {
 	pub fn _check_vkey_dict (&self, key : &str) {
+		if self.tt != DICT_TOKEN {
+			panic!("invalid operation");
+		}
 		if !self.dict.as_ref().unwrap().contains_key(key) {
 			panic!("invalid key");
 		}
