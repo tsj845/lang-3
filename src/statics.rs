@@ -45,6 +45,7 @@ pub const NUL : u8 = 0;
 pub const FUN : u8 = 1;
 pub const REF : u8 = 2;
 pub const LIT : u8 = 3;
+// index
 pub const IDX : u8 = 4;
 pub const KEY : u8 = 5;
 pub const MAT : u8 = 6;
@@ -58,6 +59,7 @@ pub const SEP : u8 = 13;
 pub const SYM : u8 = 14;
 pub const GRP : u8 = 15;
 pub const DOT : u8 = 16;
+// contol flow
 pub const CTL : u8 = 17;
 pub const NLN : u8 = 18;
 pub const UDF : u8 = 19;
@@ -66,7 +68,7 @@ pub const TOKEN_ARRAY : [&str; 21] = ["NUL", "FUN", "REF", "LIT", "IDX", "KEY", 
 pub const FILE_EXT : &str = ".ihl";
 
 // program keywords
-pub const KEYWORDS : [&str; 12] = ["gloabl", "local", "func", "print", "of", "dumpscope", "rm", "garbage", "log", "return", "dumptoks", "dumplc"];
+pub const KEYWORDS : [&str; 13] = ["gloabl", "local", "func", "print", "of", "dumpscope", "rm", "garbage", "log", "return", "dumptoks", "dumplc", "dumpflags"];
 
 // tokenization regex patterns
 pub const WORD_RE_PAT : &str = r"[[:alpha:]]+[[:word:]]*";
@@ -77,7 +79,7 @@ pub const LITERAL_RE_PAT : &str = r"true|false|null";
 pub const PAREN_RE_PAT : &str = r"[()]";
 pub const GROUP_RE_PAT : &str = r"$?[{}\[\]]";
 pub const SEPER_RE_PAT : &str = r"[:,]";
-pub const KEYWD_RE_PAT : &str = r"global|local|func|print|of|dumpscope|rm|garbage|log|return|dumptoks|dumplc";
+pub const KEYWD_RE_PAT : &str = r"\b(global|local|func|print|of|dumpscope|rm|garbage|log|return|dumptoks|dumplc|dumpflags)\b";
 pub const ASIGN_RE_PAT : &str = r"=";
 pub const MATHM_RE_PAT : &str = r"[-+*/]";
 pub const TOKEN_STR_RE_PAT : &str = r#"".*""#;
@@ -96,6 +98,7 @@ pub const DT_NUM : u8 = 2;
 pub const DT_BOL : u8 = 3;
 pub const DT_LST : u8 = 4;
 pub const DT_DCT : u8 = 5;
+pub const DT_OBJ : u8 = 6;
 
 pub struct Token {
 	pub id : u8,
@@ -104,6 +107,7 @@ pub struct Token {
 	pub list : Option<Vec<Token>>,
 	pub length : usize,
 	pub data_type : u8,
+	pub escape : bool,
 	tt : u8,
 }
 
@@ -153,6 +157,8 @@ impl Token {
 			data_type = DT_LST;
 		} else if id == DCT {
 			data_type = DT_DCT;
+		} else if id == OBJ {
+			data_type = DT_OBJ;
 		}
 		if tt == BASE_TOKEN {
 			return Token {
@@ -162,6 +168,7 @@ impl Token {
 				list : None,
 				length : 0,
 				data_type : data_type,
+				escape : false,
 				tt : tt,
 			};
 		} else if tt == DICT_TOKEN {
@@ -172,6 +179,7 @@ impl Token {
 				list : None,
 				length : 0,
 				data_type : data_type,
+				escape : false,
 				tt : tt,
 			};
 		} else if tt == LIST_TOKEN {
@@ -182,6 +190,7 @@ impl Token {
 				list : Some(Vec::new()),
 				length : 0,
 				data_type : data_type,
+				escape : false,
 				tt : tt,
 			};
 		}
@@ -285,6 +294,7 @@ impl std::clone::Clone for Token {
 			list : self.list.clone(),
 			length : self.length,
 			data_type : self.data_type,
+			escape : false,
 			tt : self.tt,
 		}
 	}
@@ -294,14 +304,14 @@ impl fmt::Debug for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Token")
 		.field("id", &self.id)
-		.field("value", &self.value)
+		.field("value", &self.value.replace("\x1b", "\\x1b").replace("\n", "\\n").replace("\t", "\\t"))
 		.finish()
     }
 }
 
 impl fmt::Display for Token {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "({}, \"{}\")", TOKEN_ARRAY[self.id as usize], self.value)
+		write!(f, "({}, \"{}\")", TOKEN_ARRAY[self.id as usize], &self.value.replace("\x1b", "\\x1b").replace("\n", "\\n").replace("\t", "\\t"))
 	}
 }
 

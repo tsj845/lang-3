@@ -1,17 +1,44 @@
 #[terminating_newlines=2]
-#[print_sep_spaces=1]
+#[print_sep_spaces=0]
 #[token_block__NLN=true]
 #[token_block__MET=true]
 
-la = $["a"];
+dumptoks;
+
+print System.lime + "SYSLIME" + System.default;
+
+#[print_sep_spaces=1]
+
+la = $["a", $["b"]];
+
+dumpscope 2;
+
+lb = la.get(1);
+print "LBLEN", lb.length;
+dumptoks;
+print System.cyan + "DUMP LB" + System.default;
+dumplc lb;
+//lb = $["b"];
 b = "c";
+log "out";
 c = "d";
 
-la.push($b);
-la.push($c);
-la.pop();
+//la.push($lb);
+
 "list length" la.length;
 "DATA CHECK" "012".is_digit();
+
+global returnval = 1;
+
+func f () {
+	local returnval = 0;
+	return $returnval;
+}
+
+x = f();
+log "out 2";
+print "X=" + $x.to_string();
+log "out 3";
 
 n = 10;
 
@@ -19,7 +46,7 @@ n = 10;
 
 dumplc la;
 
-dumptoks;
+//dumptoks;
 
 print 1 of la;
 

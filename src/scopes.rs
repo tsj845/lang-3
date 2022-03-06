@@ -8,12 +8,16 @@ use std::collections::HashMap;
  * 1 - read up, write down
  * 2 - read down, write up
  * 3 - (global) read down, write down
+ * global flags
+ * 0 - (default behavior, normal) program managed
+ * 1 - (protected) protected object, immutable and always accessed as global
  */
 
 pub struct VarScopes {
 	scopes : Vec<HashMap<String, Token>>,
 	scope_count : usize,
 	var_flags : Vec<HashMap<String, u8>>,
+	gv_flags : HashMap<String, u8>,
 }
 
 impl VarScopes {
@@ -22,12 +26,32 @@ impl VarScopes {
 			scopes : vec![HashMap::new()],
 			scope_count : 1,
 			var_flags : vec![HashMap::new()],
+			gv_flags : HashMap::new(),
 		}
+	}
+	pub fn dump_flags (&self) {
+		let mut i : usize = 0;
+		let l = self.var_flags.len();
+		loop {
+			if i >= l {
+				break;
+			}
+			println!("\n{}dumping\x1b[39m flags {}{}\x1b[0m", DEBUG_PURPLE, DEBUG_BLUE_SCOPE_DUMP, i);
+			for (flag, v) in &self.var_flags[i] {
+				println!("{} : {}", flag, v);
+			}
+			i += 1;
+		}
+		println!("");
 	}
 	fn dumpscope (&self, index : usize) {
 		println!("\n{}dumping\x1b[39m var scope {}{}\x1b[0m:", DEBUG_PURPLE, DEBUG_BLUE_SCOPE_DUMP, index);
 		for (key, val) in &self.scopes[index] {
-			println!("{} : {}", key, val);
+			if self.find_gv(key.to_string()) == 1 {
+				println!("{} : {} {}protected\x1b[39m", key, val, DEBUG_BLUE_SCOPE_DUMP);
+			} else {
+				println!("{} : {}", key, val);
+			}
 		}
 	}
 	pub fn dump (&self, sid : usize) {
@@ -44,6 +68,12 @@ impl VarScopes {
 		} else {
 			self.dumpscope(sid);
 		}
+	}
+	fn find_gv (&self, varname : String) -> u8 {
+		if self.gv_flags.contains_key(&varname) {
+			return self.gv_flags.get(&varname).unwrap().clone();
+		}
+		return 0u8;
 	}
 	fn find_flag (&self, varname : String) -> u8 {
 		let mut i : usize = self.scope_count-1;
@@ -63,6 +93,9 @@ impl VarScopes {
 	}
 	pub fn flag_var (&mut self, varname : String, flag_value : u8) {
 		self.var_flags[self.scope_count-1].insert(varname, flag_value);
+	}
+	pub fn set_protection (&mut self, varname : &str, flag_value : u8) {
+		self.gv_flags.insert(varname.to_string(), flag_value);
 	}
 	pub fn write_to_scope (&mut self, mut id : usize, name : &str, value : Token) {
 		if id > 1 {
@@ -111,10 +144,16 @@ impl VarScopes {
 		return Token::news(UDF, "UDF", BASE_TOKEN);
 	}
 	pub fn get (&self, name : &str) -> Token {
-		if self.find_flag(name.to_string()) > 1 {
-			return self.get_r(name);
+		if self.find_gv(name.to_string()) == 1 {
+			// println!("{}get forwards\x1b[39m", INTERPRETER_DEBUG_ORANGE);
+			return self.get_f(name);
 		}
-		return self.get_f(name);
+		if self.find_flag(name.to_string()) > 1 {
+			// println!("{}get forward\x1b[39m", INTERPRETER_DEBUG_ORANGE);
+			return self.get_f(name);
+		}
+		// println!("{}get reverse\x1b[39m", INTERPRETER_DEBUG_ORANGE);
+		return self.get_r(name);
 	}
 	fn set_r (&mut self, name : &str, value : Token) {
 		self.scopes[self.scope_count-1].insert(name.to_string(), value);
@@ -123,6 +162,9 @@ impl VarScopes {
 		self.scopes[0].insert(name.to_string(), value);
 	}
 	pub fn set (&mut self, name : &str, value : Token) {
+		if self.find_gv(name.to_string()) == 1 {
+			return;
+		}
 		if self.find_flag(name.to_string()) % 2 == 0 {
 			self.set_r(name, value);
 		} else {

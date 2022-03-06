@@ -46,7 +46,7 @@ fn get_number (mut i : usize, line_str : String) -> (usize, String) {
 		if i >= line_len {
 			break;
 		}
-		if !line[i].is_digit(base) && (line[i] != '.' || typedef || decu) && (typedef || decu || !match line[i] {'x'=>true,'b'=>true,_=>false}) {
+		if !line[i].is_digit(base) && (line[i] != '.' || (line[i] == '.' && !line[i+1].is_digit(10)) || typedef || decu) && (typedef || decu || !match line[i] {'x'=>true,'b'=>true,_=>false}) {
 			break;
 		}
 		if line[i] == '.' {
@@ -150,17 +150,27 @@ fn process_grp (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 	} else if tokens[i].value == "$[" {
 		tokens.remove(i);
 		let mut lst : Vec<Token> = Vec::new();
+		let mut depth : usize = 1;
 		loop {
 			if i >= tokens.len() {
 				panic!("GRP finding out of bounds");
 			}
-			if tokens[i].value == "]" {
-				tokens.remove(i);
-				break;
+			if tokens[i].id == GRP {
+				if tokens[i].value == "]" {
+					depth -= 1;
+					if depth == 0 {
+						tokens.remove(i);
+						break;
+					}
+				} else if tokens[i].value == "$[" {
+					depth += 1;
+				}
+				lst.push(tokens.remove(i));
 			} else {
 				lst.push(tokens.remove(i));
 			}
 		}
+		lst = preprocess(lst);
 		let mut f : Token = Token::news(LST, "LST", LIST_TOKEN);
 		for t in lst {
 			if t.id != SEP {
@@ -176,6 +186,7 @@ fn process_grp (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 
 fn process_fun (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
 	let mut f : Token = Token::new(FUN, tokens[i+1].value.clone(), LIST_TOKEN);
+	let mut ft : Vec<Token> = Vec::new();
 	let mut depth : u32 = 0;
 	tokens.remove(i);
 	tokens.remove(i);
@@ -210,10 +221,40 @@ fn process_fun (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 				}
 			}
 		}
-		f.push(tokens.remove(i));
+		ft.push(tokens.remove(i));
 	}
+	f.list = Some(preprocess(ft));
 	// println!("{}", f.value);
 	// printlst::<Token>(&f.list.as_ref().unwrap());
+	return (i, tokens, f);
+}
+
+fn process_idx (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
+	let mut f : Token = Token::news(IDX, "IDX", LIST_TOKEN);
+	let mut ft : Vec<Token> = Vec::new();
+	let mut depth : u32 = 0;
+	loop {
+		if i >= tokens.len() {
+			panic!("function end not found");
+		}
+		if tokens[i].id == GRP {
+			if tokens[i].value == "[" {
+				depth -= 1;
+				if depth == 0 {
+					tokens.remove(i);
+					break;
+				}
+			} else if tokens[i].value == "]" {
+				depth += 1;
+				if depth == 1 {
+					tokens.remove(i);
+					continue;
+				}
+			}
+		}
+		ft.push(tokens.remove(i));
+	}
+	f.list = Some(preprocess(ft));
 	return (i, tokens, f);
 }
 
@@ -225,13 +266,24 @@ pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
 		if i >= l {
 			break;
 		}
-		if tokens[i].id == GRP && tokens[i].value.chars().nth(0).unwrap() == '$' {
-			let x : (usize, Vec<Token>, Token) = process_grp(i, tokens);
-			i = x.0;
-			tokens = x.1;
-			l = tokens.len();
-			fv.push(x.2);
-			continue;
+		if tokens[i].id == GRP {
+			if tokens[i].value.chars().nth(0).unwrap() == '$' {
+				let x : (usize, Vec<Token>, Token) = process_grp(i, tokens);
+				i = x.0;
+				tokens = x.1;
+				l = tokens.len();
+				fv.push(x.2);
+				continue;
+			} else {
+				if tokens[i].value == "[" {
+					let x : (usize, Vec<Token>, Token) = process_idx(i, tokens);
+					i = x.0;
+					tokens = x.1;
+					l = tokens.len();
+					fv.push(x.2);
+					continue;
+				}
+			}
 		} else if tokens[i].id == KEY && tokens[i].value == "func" {
 			let x : (usize, Vec<Token>, Token) = process_fun(i, tokens);
 			i = x.0;
