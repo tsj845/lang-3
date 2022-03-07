@@ -13,19 +13,26 @@ la = $["a", $["b"]];
 
 dumpscope 2;
 
-lb = la.get(1);
+lb = la[1];
+
 print "LBLEN", lb.length;
+
 dumptoks;
+
 print System.cyan + "DUMP LB" + System.default;
+
 dumplc lb;
 //lb = $["b"];
 b = "c";
+
 log "out";
+
 c = "d";
 
 //la.push($lb);
 
 "list length" la.length;
+
 "DATA CHECK" "012".is_digit();
 
 global returnval = 1;

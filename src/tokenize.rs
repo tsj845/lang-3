@@ -2,6 +2,7 @@ use regex::Regex;
 use lazy_static::lazy_static;
 
 use crate::statics::*;
+use crate::static_colors::*;
 
 fn get_complement_surround (given : char) -> char {
 	match given {
@@ -230,12 +231,14 @@ fn process_fun (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 }
 
 fn process_idx (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
+	println!("{}PREPROCESS IDX\x1b[0m", INTERPRETER_DEBUG_BRIGHTPINK);
+	printlst::<Token>(&tokens);
 	let mut f : Token = Token::news(IDX, "IDX", LIST_TOKEN);
 	let mut ft : Vec<Token> = Vec::new();
-	let mut depth : u32 = 0;
+	let mut depth : u32 = 1;
 	loop {
 		if i >= tokens.len() {
-			panic!("function end not found");
+			panic!("index end not found");
 		}
 		if tokens[i].id == GRP {
 			if tokens[i].value == "[" {
@@ -259,6 +262,8 @@ fn process_idx (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 }
 
 pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
+	println!("{}PREPROCESS\x1b[0m", INTERPRETER_DEBUG_BRIGHTPINK);
+	printlst::<Token>(&tokens);
 	let mut fv : Vec<Token> = Vec::new();
 	let mut i : usize = 0;
 	let mut l = tokens.len();
@@ -277,8 +282,13 @@ pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
 			} else {
 				if tokens[i].value == "[" {
 					let x : (usize, Vec<Token>, Token) = process_idx(i, tokens);
+					let oi = i;
 					i = x.0;
 					tokens = x.1;
+					let xl = &tokens.clone()[oi..x.0];
+					println!("LXLST");
+					printlst::<Token>(&xl.to_vec());
+					printlst::<Token>(x.2.list.as_ref().unwrap());
 					l = tokens.len();
 					fv.push(x.2);
 					continue;

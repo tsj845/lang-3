@@ -69,7 +69,7 @@ impl Parser {
 			return Token::new(LIT, v.to_string(), BASE_TOKEN);
 		} else if STRING_RE.is_match(&v1) {
 			if !STRING_RE.is_match(&v2) {
-				println!("{}", v2);
+				println!("{}, {}\x1b[0m", v1, v2);
 				panic!("mismatched types");
 			}
 			return Token::new(LIT, String::from("\"") + &String::from(&v1[1..v1.len()-1]) + &v2[1..v2.len()-1] + "\"", BASE_TOKEN);
@@ -342,6 +342,11 @@ impl Parser {
 		return i;
 	}
 	fn eval_exp (&mut self, mut toks : Vec<Token>) -> Token {
+		lazy_static! {
+			static ref NUMBER_RE : Regex = Regex::new(NUMBER_RE_PAT).unwrap();
+			static ref DECI_RE : Regex = Regex::new(DECI_RE_PAT).unwrap();
+			static ref STRING_RE : Regex = Regex::new(TOKEN_STR_RE_PAT).unwrap();
+		}
 		if toks.len() == 0 {
 			return self.__fault();
 		}
@@ -368,43 +373,63 @@ impl Parser {
 			if toks[i].id == LIT || toks[i].id == REF {
 				copt = self.derefb(&toks[i]).clone();
 			} else if toks[i].id == MAT {
-				if toks[i+2].id == DOT {
-					// println!("BINDING");
-					i += 2;
-					let oi : usize = i-1;
-					let x : (usize, Token, Vec<Token>) = self.execute(toks.clone(), i);
-					toks = x.2;
-					i = x.0;
-					toks[i-1] = x.1;
-					// println!("abrem: {}, {}", toks[i], toks[i+1]);
-					toks.remove(i);
-					toks.remove(i);
-					i -= 1;
-					loop {
-						if oi >= i {
-							break;
-						}
-						// println!("REM: {}", toks[oi]);
-						toks.remove(oi);
-						i -= 1;
+				// if toks[i+2].id == DOT {
+				// 	// println!("BINDING");
+				// 	i += 2;
+				// 	let oi : usize = i-1;
+				// 	let x : (usize, Token, Vec<Token>) = self.execute(toks.clone(), i);
+				// 	toks = x.2;
+				// 	i = x.0;
+				// 	toks[i-1] = x.1;
+				// 	// println!("abrem: {}, {}", toks[i], toks[i+1]);
+				// 	toks.remove(i);
+				// 	toks.remove(i);
+				// 	i -= 1;
+				// 	loop {
+				// 		if oi >= i {
+				// 			break;
+				// 		}
+				// 		// println!("REM: {}", toks[oi]);
+				// 		toks.remove(oi);
+				// 		i -= 1;
+				// 	}
+				// 	l = toks.len();
+				// 	i -= 1;
+				// }
+				i += 1;
+				let mut optoks : Vec<Token> = Vec::new();
+				let l = toks.len();
+				loop {
+					if i >= l {
+						break;
 					}
-					l = toks.len();
-					i -= 1;
+					if toks[i].id == NLN || toks[i].id == MAT || toks[i].id == LOG {
+						break;
+					}
+					optoks.push(toks[i].clone());
+					i += 1;
 				}
-				copt = self.operation(&toks[i].value, self.derefb(&copt).value, self.derefb(&toks[i+1]).value);
+				i -= 1;
+				let r = self.eval_exp(optoks);
+				println!("R: {}", r);
+				copt = self.operation(&toks[i].value, self.derefb(&copt).value, r.value);
+				println!("COPT: {}", copt);
 				i += 1;
 			} else if toks[i].id == LOG {
 				// do logical operations
 			} else if toks[i].id == DOT {
 				if self.BINDINGS.check_valid(&self.derefb(&toks[i-1]), &toks[i+1].value) {
+					println!("BINDING {}, {}", toks[i-1].value, toks[i+1].value);
 					let oi : usize = i-1;
 					let x : (usize, Token, Vec<Token>) = self.execute(toks.clone(), i);
+					println!("{}", x.1);
 					toks = x.2;
 					i = x.0;
 					toks[i-1] = x.1;
 					copt = toks[i-1].clone();
 					toks.remove(i);
 					toks.remove(i);
+					printlst::<Token>(&toks);
 					i -= 1;
 					loop {
 						if oi >= i {
@@ -415,9 +440,21 @@ impl Parser {
 					}
 					l = toks.len();
 				}
+			} else if toks[i].id == IDX {
+				let tlst = toks[i].list.as_ref().unwrap().clone();
+				printlst::<Token>(&tlst);
+				let t = self.eval_exp(tlst);
+				toks.remove(i);
+				toks[i-1] = self.derefb(&toks[i-1]);
+				if toks[i-1].id == LST {
+					toks[i-1] = toks[i-1].get(t.value.parse::<usize>().unwrap());
+				} else if toks[i-1].id == DCT {
+					toks[i-1] = toks[i-1].getd(t.value);
+				}
 			}
 			i += 1;
 		}
+		println!("{}{}\x1b[0m", INTERPRETER_LIME, copt);
 		return copt;
 	}
 	fn eval (&mut self, mut tokens : Vec<Token>) -> Token {
@@ -452,10 +489,6 @@ impl Parser {
 						self.func_call(token_index+2, &mut tokens);
 						r = tokens[token_index+1].clone();
 					}
-					// if r.id == REF && r.value.starts_with('$') {
-					// 	r = self.deref(r);
-					// }
-					// println!("{}", self.derefb(&r));
 					return self.derefb(&r);
 				} else if token.value == "dumpscope" {
 					token_index = self.dumpscope(token_index, &tokens);
@@ -481,6 +514,7 @@ impl Parser {
 					printlst::<Token>(&self.__filter(&tokens));
 				} else if token.value == "dumplc" {
 					println!("DUMPLC");
+					println!("{}{}\x1b[0m", INTERPRETER_DEBUG_BRIGHTPINK, self.derefb(&tokens[token_index+1]));
 					printlst::<Token>(&self.derefb(&tokens[token_index+1]).list.as_ref().unwrap());
 					token_index += 1;
 				} else if token.value == "dumpflags" {
@@ -642,6 +676,7 @@ impl Parser {
 					ret = t.popitem(x.1.value.parse::<usize>().unwrap());
 				} else if target == "get" {
 					let x : (usize, Token) = self.get_value(&tokens, i);
+					println!("{}{}\x1b[0m", INTERPRETER_DEBUG_ORANGE, x.1);
 					i = x.0 - 2;
 					ret = t.list.as_ref().unwrap()[x.1.value.parse::<usize>().unwrap()].clone();
 				}
