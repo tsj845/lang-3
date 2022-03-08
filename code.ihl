@@ -1,27 +1,22 @@
 #[terminating_newlines=2]
-#[print_sep_spaces=0]
-#[token_block__NLN=true]
-#[token_block__MET=true]
-
-print System.lime + "SYSLIME" + System.default;
-
 #[print_sep_spaces=1]
+#[print_sep_value=", "]
+//#[token_block__NLN=true]
+//#[token_block__MET=true]
 
 la = $["a", $["b"]];
 
-dumpscope 2;
-
 lb = la[1];
 
-print "LBLEN", lb.length;
+print System.lime + "SYSLIME" + System.default;
 
 print System.cyan + "DUMP LB" + System.default;
 
-dumplc lb;
+x = 0;
 
-"list length" la.length;
+print 0.to_string(), x + 1 * 100, "xyz".length;
 
-#[terminating_newlines=1]
-log "MAIN PROGRAM DUMP";
+//#[terminating_newlines=1]
+//log "MAIN PROGRAM DUMP";
 
-dumpscope 2;
+//dumpscope 2;

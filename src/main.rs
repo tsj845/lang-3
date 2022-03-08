@@ -19,9 +19,11 @@ struct Parser {
 	SEPTOK : Token,
 	UDFTOK : Token,
 	BINDINGS : Bindings<'static>,
-	terminating_newlines : u32,
-	print_sep_spaces : u32,
+	meta_terminating_newlines : u32,
+	meta_print_sep_spaces : u32,
+	meta_print_sep_value : String,
 	token_block : HashMap<String, bool>,
+	dbdepth : i64,
 }
 
 impl Parser {
@@ -32,9 +34,11 @@ impl Parser {
 			SEPTOK : Token::news(SEP, ",", BASE_TOKEN),
 			UDFTOK : Token::news(UDF, "UDF", BASE_TOKEN),
 			BINDINGS : Bindings::new(),
-			terminating_newlines : 1,
-			print_sep_spaces : 1,
+			meta_terminating_newlines : 1,
+			meta_print_sep_spaces : 1,
+			meta_print_sep_value : String::from(" "),
 			token_block : HashMap::new(),
+			dbdepth : 0,
 		}
 	}
 	fn __fault (&self) -> Token {
@@ -216,6 +220,7 @@ impl Parser {
 			if token == self.SEPTOK {
 				new_arg_ready = true;
 				i += 1;
+				print!("{}", self.meta_print_sep_value.repeat(self.meta_print_sep_spaces as usize));
 				continue;
 			}
 			if new_arg_ready {
@@ -252,11 +257,11 @@ impl Parser {
 				if b[0] == '"' && b[b.len()-1] == '"' {
 					copt.value = copt.value[1..copt.value.len()-1].to_string();
 				}
-				print!("{}{}", copt.value, String::from(" ").repeat(self.print_sep_spaces as usize));
+				print!("{}", copt.value);
 			}
 			i += 1;
 		}
-		print!("{}", String::from("\n").repeat(self.terminating_newlines as usize));
+		print!("{}", String::from("\n").repeat(self.meta_terminating_newlines as usize));
 		return i;
 	}
 	fn dumpscope (&self, mut i : usize, tokens : &Vec<Token>) -> usize {
@@ -350,6 +355,9 @@ impl Parser {
 		if toks.len() == 0 {
 			return self.__fault();
 		}
+		self.dbdepth += 1;
+		// println!("{}EVAL AT DEPTH: {}\x1b[39m", INTERPRETER_DEBUG_BRIGHTPINK, self.dbdepth);
+		// printlst::<Token>(&toks);
 		let mut i : usize = 0;
 		loop {
 			if i >= toks.len() {
@@ -373,32 +381,39 @@ impl Parser {
 			if toks[i].id == LIT || toks[i].id == REF {
 				copt = self.derefb(&toks[i]);
 			} else if toks[i].id == MAT {
+				// println!("BEFORE MATH: {}", i);
 				i += 1;
 				let mut optoks : Vec<Token> = Vec::new();
-				let l = toks.len();
+				// toks.remove(i);
 				loop {
-					if i >= l {
+					if i >= toks.len() {
 						break;
 					}
 					if toks[i].id == NLN || toks[i].id == MAT || toks[i].id == LOG {
 						break;
 					}
-					optoks.push(toks[i].clone());
-					i += 1;
+					optoks.push(toks.remove(i));
 				}
-				i -= 1;
-				println!("RIGHT HAND EVAL");
+				// printlst::<Token>(&optoks);
+				// i -= 1;
+				// println!("RIGHT HAND EVAL");
 				let r = self.eval_exp(optoks);
-				// println!("R: {}", r);
-				// println!("REF: {}, {}, {}", toks[i-1], copt, r);
-				copt = self.operation(&toks[i-1].value, self.derefb(&copt).value, r.value);
+				toks.insert(i, r);
+				// println!("R: {}", toks[i]);
+				// printlst::<Token>(&toks);
+				i -= 1;
+				// println!("I: {}", i);
+				// println!("REF: {}, {}, {}, {}", toks[i], copt, toks[i+1], i);
+				copt = self.operation(&toks[i].value, self.derefb(&copt).value, toks[i+1].value.clone());
 				// println!("COPT: {}", copt);
 				i += 1;
+				l = toks.len();
 			} else if toks[i].id == LOG {
 				// do logical operations
 			} else if toks[i].id == DOT {
 				if self.BINDINGS.check_valid(&self.derefb(&toks[i-1]), &toks[i+1].value) {
 					// println!("BINDING {}, {}", toks[i-1].value, toks[i+1].value);
+					// toks[i-1] = self.derefb(&toks[i-1]);
 					let oi : usize = i-1;
 					let x : (usize, Token, Vec<Token>) = self.execute(toks.clone(), i);
 					// println!("{}", x.1);
@@ -408,7 +423,7 @@ impl Parser {
 					copt = toks[i-1].clone();
 					toks.remove(i);
 					toks.remove(i);
-					printlst::<Token>(&toks);
+					// printlst::<Token>(&toks);
 					i -= 1;
 					loop {
 						if oi >= i {
@@ -438,7 +453,8 @@ impl Parser {
 			}
 			i += 1;
 		}
-		println!("{}{}\x1b[0m", INTERPRETER_DEBUG_ORANGE, copt);
+		// println!("{}{} RETCOPT: {}\x1b[0m", INTERPRETER_DEBUG_ORANGE, self.dbdepth, copt);
+		self.dbdepth -= 1;
 		return copt;
 	}
 	fn eval (&mut self, mut tokens : Vec<Token>) -> Token {
@@ -452,9 +468,12 @@ impl Parser {
 			// meta properties
 			if token.id == MET {
 				if token.value == "terminating_newlines" {
-					self.terminating_newlines = tokens[token_index+1].value.parse::<u32>().unwrap();
+					self.meta_terminating_newlines = tokens[token_index+1].value.parse::<u32>().unwrap();
 				} else if token.value == "print_sep_spaces" {
-					self.print_sep_spaces = tokens[token_index+1].value.parse::<u32>().unwrap();
+					self.meta_print_sep_spaces = tokens[token_index+1].value.parse::<u32>().unwrap();
+				} else if token.value == "print_sep_value" {
+					let v = &tokens[token_index+1].value;
+					self.meta_print_sep_value = String::from(&v[1..v.len()-1]);
 				} else if token.value.starts_with("token_block__") {
 					let v : &str = &token.value[13..];
 					self.token_block.insert(v.to_string(), tokens[token_index+1].value == "true");
@@ -613,7 +632,7 @@ impl Parser {
         let mut t : Token = match is_ref {false=>tokens[i-1].clone(),true=>self.memory.get(&tokens[i-1].value)};
 		// println!("{}IS_REF={}, {}\x1b[39m", INTERPRETER_DEBUG_ORANGE, is_ref, t.value);
         if t.data_type == DT_STR {
-            let btype : &&str = self.BINDINGS.get_type(0, target);
+            let btype : &&str = self.BINDINGS.get_type(DT_STR, target);
             if btype == &"method" {
 				let mut ret : Token = self.__fault();
 				if target == "is_alpha" {
@@ -638,7 +657,7 @@ impl Parser {
             }
         }
         if t.data_type == DT_LST {
-            let btype : &&str = self.BINDINGS.get_type(1, target);
+            let btype : &&str = self.BINDINGS.get_type(DT_LST, target);
             if btype == &"method" {
 				let mut ret : Token = self.__fault();
                 if target == "push" {
@@ -677,7 +696,7 @@ impl Parser {
             }
         }
 		if t.data_type == DT_NUM {
-			let btype : &&str = self.BINDINGS.get_type(3, target);
+			let btype : &&str = self.BINDINGS.get_type(DT_NUM, target);
 			if btype == &"property" {
 				return (i, self.__fault(), tokens);
 			} else if btype == &"method" {

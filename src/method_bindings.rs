@@ -45,13 +45,13 @@ impl Bindings<'_> {
 		if !self.validate(i, t) {
 			return &"";
 		}
-		if i == 0 {
+		if i == DT_STR {
 			return self.strings.get(t).unwrap();
-		} else if i == 1 {
+		} else if i == DT_LST {
 			return self.lists.get(t).unwrap();
-		} else if i == 2 {
+		} else if i == DT_DCT {
 			return self.dicts.get(t).unwrap();
-		} else if i == 3 {
+		} else if i == DT_NUM {
 			return self.numbers.get(t).unwrap();
 		}
 		return &"";
@@ -66,6 +66,7 @@ impl Bindings<'_> {
             return self.strings.contains_key(target);
         }
         if t == DT_NUM {
+			// println!("IS DT_NUM");
             return self.numbers.contains_key(target);
         }
         if t == DT_LST {
