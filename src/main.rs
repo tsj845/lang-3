@@ -371,31 +371,8 @@ impl Parser {
 			}
 			// println!("\x1b[38;2;255;0;255m{}\x1b[39m", toks[i]);
 			if toks[i].id == LIT || toks[i].id == REF {
-				copt = self.derefb(&toks[i]).clone();
+				copt = self.derefb(&toks[i]);
 			} else if toks[i].id == MAT {
-				// if toks[i+2].id == DOT {
-				// 	// println!("BINDING");
-				// 	i += 2;
-				// 	let oi : usize = i-1;
-				// 	let x : (usize, Token, Vec<Token>) = self.execute(toks.clone(), i);
-				// 	toks = x.2;
-				// 	i = x.0;
-				// 	toks[i-1] = x.1;
-				// 	// println!("abrem: {}, {}", toks[i], toks[i+1]);
-				// 	toks.remove(i);
-				// 	toks.remove(i);
-				// 	i -= 1;
-				// 	loop {
-				// 		if oi >= i {
-				// 			break;
-				// 		}
-				// 		// println!("REM: {}", toks[oi]);
-				// 		toks.remove(oi);
-				// 		i -= 1;
-				// 	}
-				// 	l = toks.len();
-				// 	i -= 1;
-				// }
 				i += 1;
 				let mut optoks : Vec<Token> = Vec::new();
 				let l = toks.len();
@@ -410,19 +387,21 @@ impl Parser {
 					i += 1;
 				}
 				i -= 1;
+				println!("RIGHT HAND EVAL");
 				let r = self.eval_exp(optoks);
-				println!("R: {}", r);
-				copt = self.operation(&toks[i].value, self.derefb(&copt).value, r.value);
-				println!("COPT: {}", copt);
+				// println!("R: {}", r);
+				// println!("REF: {}, {}, {}", toks[i-1], copt, r);
+				copt = self.operation(&toks[i-1].value, self.derefb(&copt).value, r.value);
+				// println!("COPT: {}", copt);
 				i += 1;
 			} else if toks[i].id == LOG {
 				// do logical operations
 			} else if toks[i].id == DOT {
 				if self.BINDINGS.check_valid(&self.derefb(&toks[i-1]), &toks[i+1].value) {
-					println!("BINDING {}, {}", toks[i-1].value, toks[i+1].value);
+					// println!("BINDING {}, {}", toks[i-1].value, toks[i+1].value);
 					let oi : usize = i-1;
 					let x : (usize, Token, Vec<Token>) = self.execute(toks.clone(), i);
-					println!("{}", x.1);
+					// println!("{}", x.1);
 					toks = x.2;
 					i = x.0;
 					toks[i-1] = x.1;
@@ -441,20 +420,25 @@ impl Parser {
 					l = toks.len();
 				}
 			} else if toks[i].id == IDX {
+				// println!("INDEX EVALUATION");
 				let tlst = toks[i].list.as_ref().unwrap().clone();
-				printlst::<Token>(&tlst);
+				// printlst::<Token>(&tlst);
 				let t = self.eval_exp(tlst);
+				// println!("RES T: {}", t);
 				toks.remove(i);
 				toks[i-1] = self.derefb(&toks[i-1]);
+				// println!("TOKS-1: {}", toks[i-1]);
 				if toks[i-1].id == LST {
 					toks[i-1] = toks[i-1].get(t.value.parse::<usize>().unwrap());
+					// printlst::<Token>(toks[i-1].list.as_ref().unwrap());
 				} else if toks[i-1].id == DCT {
 					toks[i-1] = toks[i-1].getd(t.value);
 				}
+				copt = toks[i-1].clone();
 			}
 			i += 1;
 		}
-		println!("{}{}\x1b[0m", INTERPRETER_LIME, copt);
+		println!("{}{}\x1b[0m", INTERPRETER_DEBUG_ORANGE, copt);
 		return copt;
 	}
 	fn eval (&mut self, mut tokens : Vec<Token>) -> Token {
@@ -513,7 +497,7 @@ impl Parser {
 				} else if token.value == "dumptoks" {
 					printlst::<Token>(&self.__filter(&tokens));
 				} else if token.value == "dumplc" {
-					println!("DUMPLC");
+					// println!("DUMPLC");
 					println!("{}{}\x1b[0m", INTERPRETER_DEBUG_BRIGHTPINK, self.derefb(&tokens[token_index+1]));
 					printlst::<Token>(&self.derefb(&tokens[token_index+1]).list.as_ref().unwrap());
 					token_index += 1;

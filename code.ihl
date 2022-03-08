@@ -3,8 +3,6 @@
 #[token_block__NLN=true]
 #[token_block__MET=true]
 
-dumptoks;
-
 print System.lime + "SYSLIME" + System.default;
 
 #[print_sep_spaces=1]
@@ -17,45 +15,11 @@ lb = la[1];
 
 print "LBLEN", lb.length;
 
-dumptoks;
-
 print System.cyan + "DUMP LB" + System.default;
 
 dumplc lb;
-//lb = $["b"];
-b = "c";
-
-log "out";
-
-c = "d";
-
-//la.push($lb);
 
 "list length" la.length;
-
-"DATA CHECK" "012".is_digit();
-
-global returnval = 1;
-
-func f () {
-	local returnval = 0;
-	return $returnval;
-}
-
-x = f();
-log "out 2";
-print "X=" + $x.to_string();
-log "out 3";
-
-n = 10;
-
-"NUM TO STRING" n.to_string().is_digit();
-
-dumplc la;
-
-//dumptoks;
-
-print 1 of la;
 
 #[terminating_newlines=1]
 log "MAIN PROGRAM DUMP";
