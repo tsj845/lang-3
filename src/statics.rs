@@ -68,7 +68,7 @@ pub const TOKEN_ARRAY : [&str; 21] = ["NUL", "FUN", "REF", "LIT", "IDX", "KEY", 
 pub const FILE_EXT : &str = ".ihl";
 
 // program keywords
-pub const KEYWORDS : [&str; 13] = ["gloabl", "local", "func", "print", "of", "dumpscope", "rm", "garbage", "log", "return", "dumptoks", "dumplc", "dumpflags"];
+pub const KEYWORDS : [&str; 15] = ["gloabl", "local", "unique", "parent", "func", "print", "of", "dumpscope", "rm", "garbage", "log", "return", "dumptoks", "dumplc", "dumpflags"];
 
 // tokenization regex patterns
 pub const WORD_RE_PAT : &str = r"[[:alpha:]]+[[:word:]]*";
@@ -79,7 +79,7 @@ pub const LITERAL_RE_PAT : &str = r"true|false|null";
 pub const PAREN_RE_PAT : &str = r"[()]";
 pub const GROUP_RE_PAT : &str = r"$?[{}\[\]]";
 pub const SEPER_RE_PAT : &str = r"[:,]";
-pub const KEYWD_RE_PAT : &str = r"\b(global|local|func|print|of|dumpscope|rm|garbage|log|return|dumptoks|dumplc|dumpflags)\b";
+pub const KEYWD_RE_PAT : &str = r"\b(global|local|unique|parent|func|print|of|dumpscope|rm|garbage|log|return|dumptoks|dumplc|dumpflags)\b";
 pub const ASIGN_RE_PAT : &str = r"=";
 pub const MATHM_RE_PAT : &str = r"[-+*/]";
 pub const TOKEN_STR_RE_PAT : &str = r#"".*""#;

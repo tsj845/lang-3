@@ -742,7 +742,7 @@ fn main () {
 	let mut file = File::open("code".to_owned()+FILE_EXT).expect("FAILURE");
 	let mut contents = String::new();
 	file.read_to_string(&mut contents).expect("FAILURE");
-	let contents: Vec<_> = contents.split("\n").collect();
+	let contents : Vec<_> = contents.split("\n").collect();
 	let tokens : Vec<Token> = tokenize(contents);
 	let mut program : Parser = Parser::new(tokens);
 	program.__init();

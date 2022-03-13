@@ -8,6 +8,8 @@ use std::collections::HashMap;
  * 1 - read up, write down
  * 2 - read down, write up
  * 3 - (global) read down, write down
+ * 4 - (unique) only accessed in the scope it was defined in
+ * 5 - (parent) go up exactly one level
  * global flags
  * 0 - (default behavior, normal) program managed
  * 1 - (protected) protected object, immutable and always accessed as global
@@ -88,6 +90,9 @@ impl VarScopes {
 		}
 		return 0u8;
 	}
+	fn find_flag_for_scope (&self, varname : String, scope : usize) -> u8 {
+		return self.var_flags[scope].get(&varname).unwrap_or(&0u8).clone();
+	}
 	pub fn var_has_flag (&self, varname : String) -> bool {
 		return self.var_flags[self.scope_count-1].contains_key(&varname);
 	}
@@ -143,32 +148,75 @@ impl VarScopes {
 		}
 		return Token::news(UDF, "UDF", BASE_TOKEN);
 	}
+	fn get_u (&self, name : &str) -> Token {
+		return Token::news(UDF, "UDF", BASE_TOKEN);
+	}
+	fn get_p (&self, name : &str) -> Token {
+		return self.scopes[self.scope_count-1].get(name).unwrap_or(&Token::news(UDF, "UDF", BASE_TOKEN)).clone();
+	}
 	pub fn get (&self, name : &str) -> Token {
 		if self.find_gv(name.to_string()) == 1 {
-			// println!("{}get forwards\x1b[39m", INTERPRETER_DEBUG_ORANGE);
 			return self.get_f(name);
 		}
-		if self.find_flag(name.to_string()) > 1 {
-			// println!("{}get forward\x1b[39m", INTERPRETER_DEBUG_ORANGE);
+		let flag = self.find_flag(name.to_string());
+		if flag == 4 {
+			return self.get_u(name);
+		}
+		if flag == 5 {
+			return self.get_p(name);
+		}
+		if flag > 1 {
 			return self.get_f(name);
 		}
-		// println!("{}get reverse\x1b[39m", INTERPRETER_DEBUG_ORANGE);
 		return self.get_r(name);
 	}
 	fn set_r (&mut self, name : &str, value : Token) {
+		let mut i : usize = self.scope_count-1;
+		loop {
+			if self.scopes[i].contains_key(name.clone()) {
+				self.scopes[i].insert(name.to_string(), value);
+				return;
+			}
+			if i == 0 {
+				break;
+			}
+			i -= 1;
+		}
 		self.scopes[self.scope_count-1].insert(name.to_string(), value);
 	}
 	fn set_f (&mut self, name : &str, value : Token) {
+		let mut i : usize = 0;
+		loop {
+			if i >= self.scope_count {
+				break;
+			}
+			if self.scopes[i].contains_key(name.clone()) {
+				self.scopes[i].insert(name.to_string(), value);
+				return;
+			}
+			i += 1;
+		}
 		self.scopes[0].insert(name.to_string(), value);
+	}
+	fn set_u (&mut self, name : &str, value : Token) {
+		self.scopes[self.scope_count-1].insert(name.to_string(), value);
+	}
+	fn set_p (&mut self, name : &str, value : Token) {
+		self.scopes[self.scope_count-2].insert(name.to_string(), value);
 	}
 	pub fn set (&mut self, name : &str, value : Token) {
 		if self.find_gv(name.to_string()) == 1 {
 			return;
 		}
-		if self.find_flag(name.to_string()) % 2 == 0 {
+		let flag = self.find_flag(name.to_string());
+		if flag % 2 == 0 && flag < 3 {
 			self.set_r(name, value);
-		} else {
+		} else if flag < 4 {
 			self.set_f(name, value);
+		} else if flag == 4 {
+			self.set_u(name, value);
+		} else if flag == 5 {
+			self.set_p(name, value);
 		}
 	}
 	fn rm_r (&mut self, name : &str) {
