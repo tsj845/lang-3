@@ -310,7 +310,7 @@ fn process_forloop (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, T
 		ft.push(tokens.remove(i));
 	}
 	f.list.as_mut().unwrap().extend(preprocess(ft));
-	return (i, tokens, f);
+	return (i-1, tokens, f);
 }
 
 pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
@@ -401,6 +401,7 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 	let mut line_index = 0;
 	let lines_len_total = lines.len();
 	let mut words : Vec<String> = Vec::new();
+	let mut meta_data : Vec<[usize; 2]> = Vec::new();
 	'outer : loop {
 		if line_index >= lines_len_total {
 			break 'outer;
@@ -420,43 +421,54 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 				break;
 			}
 			if line[i] == '.' {
+				meta_data.push([line_index, i]);
 				words.push(String::from("."));
 			} else if i == 0 && line[i] == '#' {
 				let x : (usize, String, String) = get_meta(i, lines[line_index].to_string());
+				meta_data.push([line_index, i]);
 				words.push(String::from("#") + &x.1);
+				meta_data.push([line_index, i]);
 				words.push(x.2);
 				i = x.0;
 		 	} else if line[i] == ';' {
+				meta_data.push([line_index, i]);
 				words.push(String::from(";"));
 			} else if line[i] == '"' {
 				let x : (usize, String) = get_containing(i, line[i].clone(), get_complement_surround(line[i].clone()), lines[line_index].to_string());
 				i = x.0;
+				meta_data.push([line_index, i]);
 				words.push(x.1);
 			} else if line[i].is_digit(10) {
 				let x : (usize, String) = get_number(i, lines[line_index].to_string());
 				i = x.0 - 1;
+				meta_data.push([line_index, i]);
 				words.push(x.1);
 			} else if line[i].is_alphabetic() {
 				let x : (usize, String) = get_word(i, lines[line_index].to_string());
 				i = x.0;
+				meta_data.push([line_index, i]);
 				words.push(x.1);
 			} else if line[i] == '+' || line[i] == '-' || line[i] == '*' || line[i] == '/' {
 				let mut v = line[i].to_string();
 				if line[i+1] == '=' {
 					v += &line[i+1].to_string();
 				}
+				meta_data.push([line_index, i]);
 				words.push(v);
 				i += 1;
 			} else if line[i] == '$' {
 				if GROUP_RE.is_match(&line[i+1].to_string()) {
+					meta_data.push([line_index, i]);
 					words.push(line[i].to_string() + &line[i+1].to_string());
 					i += 1;
 				} else {
 					let x : (usize, String) = get_word(i+1, lines[line_index].to_string());
 					i = x.0;
+					meta_data.push([line_index, i]);
 					words.push(String::from("$")+&x.1);
 				}
 			} else {
+				meta_data.push([line_index, i]);
 				words.push(line[i].to_string());
 			}
 			i += 1;
@@ -464,6 +476,7 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 		line_index += 1;
 	}
 	let mut tokens : Vec<Token> = Vec::new();
+	let mut c : usize = 0;
 	for word in words {
 		if word.chars().nth(0).unwrap() == '.' {
 			tokens.push(Token::new(DOT, word, BASE_TOKEN));
@@ -490,6 +503,9 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 		} else {
 			tokens.push(Token::new(UDF, word, BASE_TOKEN));
 		}
+		let ind = tokens.len()-1;
+		tokens[ind].meta(meta_data[c][0]+1, meta_data[c][1]+1);
+		c += 1;
 	}
 	return preprocess(tokens);
 }

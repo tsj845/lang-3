@@ -61,7 +61,7 @@ impl Parser {
 		}
 		if NUMBER_RE.is_match(&v1) {
 			if !NUMBER_RE.is_match(&v2) {
-				println!("{}", v2);
+				println!("{}, {}", v1, v2);
 				panic!("mismatched types");
 			}
 			if DECI_RE.is_match(&v1) || DECI_RE.is_match(&v2) {
@@ -348,7 +348,7 @@ impl Parser {
 				o += 1;
 			}
 			let v = self.eval_exp(atoksn);
-			println!("PARAM SET: {}, {}", vname, v);
+			// println!("PARAM SET: {}, {}", vname, v);
 			self.memory.set(&vname, v);
 			j += 1;
 		}
@@ -372,7 +372,7 @@ impl Parser {
 		}
 		self.dbdepth += 1;
 		// println!("{}EVAL AT DEPTH: {}\x1b[39m", INTERPRETER_DEBUG_BRIGHTPINK, self.dbdepth);
-		printlst(&toks);
+		// printlst(&toks);
 		// printlst::<Token>(&toks);
 		let mut i : usize = 0;
 		loop {
@@ -527,7 +527,7 @@ impl Parser {
 		}
 		// printlst(&ls1);
 		// printlst(&ls2);
-		println!("ENTER EXP");
+		// println!("ENTER EXP");
 		let v1 = self.eval_exp(ls1).value;
 		let v2 = self.eval_exp(ls2).value;
 		// println!("SE V: {}, {}", v1, v2);
@@ -542,7 +542,12 @@ impl Parser {
 				break;
 			}
 			self.memory.set(&vname, Token::new(LIT, start.to_string(), BASE_TOKEN));
-			self.eval(t.clone());
+			let r = self.eval(t.clone());
+			if r.id == SIG {
+				if r.value == "BREAK" {
+					break;
+				}
+			}
 			start += 1;
 		}
 		self.memory.rem_scope();
@@ -587,6 +592,18 @@ impl Parser {
 						self.func_call(token_index+2, &mut tokens);
 						r = tokens[token_index+1].clone();
 					}
+					let mut lst : Vec<Token> = Vec::new();
+					loop {
+						if token_index >= tokens_length {
+							break;
+						}
+						if tokens[token_index].id == NLN {
+							break;
+						}
+						lst.push(tokens[token_index].clone());
+						token_index += 1;
+					}
+					r = self.eval_exp(lst);
 					return self.derefb(&r);
 				} else if token.value == "dumpscope" {
 					token_index = self.dumpscope(token_index, &tokens);
@@ -617,6 +634,8 @@ impl Parser {
 					token_index += 1;
 				} else if token.value == "dumpflags" {
 					self.memory.dump_flags();
+				} else if token.value == "break" {
+					return Token::news(SIG, "BREAK", BASE_TOKEN);
 				}
 			// handle variable assignment
 			} else if token.id == ASS {
@@ -628,10 +647,12 @@ impl Parser {
 				if operand == "=" {
 					let mut r : Token = tokens[token_index+1].clone();
 					if self.derefb(&r).id == FUN && tokens[token_index+2].id == PAR && tokens[token_index+2].value == "(" {
+						// println!("FUNC CALL from line: {} character: {}", tokens[token_index].line, tokens[token_index].chara);
 						self.func_call(token_index+2, &mut tokens);
 						tokens_length = tokens.len();
+						// printlst(&tokens);
 						r = tokens[token_index+1].clone();
-						token_index += 1;
+						// token_index += 1;
 					}
 					let mut lst : Vec<Token> = Vec::new();
 					lst.push(r.clone());
@@ -646,7 +667,12 @@ impl Parser {
 						lst.push(tokens[ind].clone());
 						ind += 1;
 					}
+					// println!("LISTING");
+					// print!("\x1b[38;2;255;2550m");
+					// printlst(&lst);
+					// print!("\x1b[0m\n");
 					r = self.eval_exp(lst);
+					// println!("R: {}", r);
 					if subscript {
 						let name = tokens[imt].value.clone();
 						let is_ref = tokens[imt].id == REF;
@@ -665,8 +691,36 @@ impl Parser {
 						self.memory.set(varname, r);
 					}
 				} else {
-					let v2 : String = self.derefb(&tokens[token_index+1]).value;
+					let mut v2 : String = self.derefb(&tokens[token_index+1]).value;
+					if self.derefb(&tokens[token_index+1]).id == FUN {
+						self.func_call(token_index+2, &mut tokens);
+						v2 = self.derefb(&tokens[token_index+1]).value;
+					}
 					// println!("{}v1:{},v2:{},op:{}\x1b[39m", INTERPRETER_DEBUG_ORANGE, self.memory.get(varname).value, v2, operand);
+					// let mut r : Token = tokens[token_index+1].clone();
+					// if self.derefb(&r).id == FUN && tokens[token_index+2].id == PAR && tokens[token_index+2].value == "(" {
+					// 	self.func_call(token_index+2, &mut tokens);
+					// 	tokens_length = tokens.len();
+					// 	r = tokens[token_index+1].clone();
+					// 	// token_index += 1;
+					// }
+					// let mut lst : Vec<Token> = Vec::new();
+					// lst.push(r.clone());
+					// let mut ind : usize = token_index+2;
+					// loop {
+					// 	if ind >= tokens_length {
+					// 		break;
+					// 	}
+					// 	if tokens[ind].id == NLN {
+					// 		break;
+					// 	}
+					// 	lst.push(tokens[ind].clone());
+					// 	ind += 1;
+					// }
+					// println!("LIST");
+					// printlst(&lst);
+					// r = self.eval_exp(lst);
+					// let v2 = r.value.clone();
 					if subscript {
 						let name = tokens[imt].value.clone();
 						let is_ref = tokens[imt].id == REF;
@@ -687,6 +741,7 @@ impl Parser {
 						self.memory.set(varname, self.assignment_operation(&operand, self.memory.get(varname).value, v2));
 					}
 				}
+				tokens_length = tokens.len();
 			// handle function initialization
 			} else if token.id == FUN {
 				self.memory.set(&token.value, token.clone());

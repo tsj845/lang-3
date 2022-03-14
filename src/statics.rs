@@ -64,11 +64,12 @@ pub const CTL : u8 = 17;
 pub const NLN : u8 = 18;
 pub const UDF : u8 = 19;
 pub const MET : u8 = 20;
-pub const TOKEN_ARRAY : [&str; 21] = ["NUL", "FUN", "REF", "LIT", "IDX", "KEY", "MAT", "LOG", "ASS", "PAR", "LST", "DCT", "OBJ", "SEP", "SYM", "GRP", "DOT", "CTL", "NLN", "UDF", "MET"];
+pub const SIG : u8 = 21;
+pub const TOKEN_ARRAY : [&str; 22] = ["NUL", "FUN", "REF", "LIT", "IDX", "KEY", "MAT", "LOG", "ASS", "PAR", "LST", "DCT", "OBJ", "SEP", "SYM", "GRP", "DOT", "CTL", "NLN", "UDF", "MET", "SIG"];
 pub const FILE_EXT : &str = ".ihl";
 
 // program keywords
-pub const KEYWORDS : [&str; 18] = ["gloabl", "local", "unique", "parent", "func", "print", "of", "dumpscope", "rm", "garbage", "log", "return", "dumptoks", "dumplc", "dumpflags", "in", "for", "HALT"];
+pub const KEYWORDS : [&str; 20] = ["gloabl", "local", "unique", "parent", "func", "print", "of", "dumpscope", "rm", "garbage", "log", "return", "dumptoks", "dumplc", "dumpflags", "in", "for", "HALT", "break", "continue"];
 
 // tokenization regex patterns
 pub const WORD_RE_PAT : &str = r"[[:alpha:]]+[[:word:]]*";
@@ -79,7 +80,7 @@ pub const LITERAL_RE_PAT : &str = r"true|false|null";
 pub const PAREN_RE_PAT : &str = r"[()]";
 pub const GROUP_RE_PAT : &str = r"$?[{}\[\]]";
 pub const SEPER_RE_PAT : &str = r"[:,]";
-pub const KEYWD_RE_PAT : &str = r"\b(global|local|unique|parent|func|print|of|dumpscope|rm|garbage|log|return|dumptoks|dumplc|dumpflags|in|for|HALT)\b";
+pub const KEYWD_RE_PAT : &str = r"\b(global|local|unique|parent|func|print|of|dumpscope|rm|garbage|log|return|dumptoks|dumplc|dumpflags|in|for|HALT|break|continue)\b";
 pub const ASIGN_RE_PAT : &str = r"=";
 pub const MATHM_RE_PAT : &str = r"[-+*/]";
 pub const TOKEN_STR_RE_PAT : &str = r#"".*""#;
@@ -108,6 +109,8 @@ pub struct Token {
 	pub length : usize,
 	pub data_type : u8,
 	pub escape : bool,
+	pub line : usize,
+	pub chara : usize,
 	tt : u8,
 }
 
@@ -169,6 +172,8 @@ impl Token {
 				length : 0,
 				data_type : data_type,
 				escape : false,
+				line : 0,
+				chara : 0,
 				tt : tt,
 			};
 		} else if tt == DICT_TOKEN {
@@ -180,6 +185,8 @@ impl Token {
 				length : 0,
 				data_type : data_type,
 				escape : false,
+				line : 0,
+				chara : 0,
 				tt : tt,
 			};
 		} else if tt == LIST_TOKEN {
@@ -191,6 +198,8 @@ impl Token {
 				length : 0,
 				data_type : data_type,
 				escape : false,
+				line : 0,
+				chara : 0,
 				tt : tt,
 			};
 		}
@@ -201,6 +210,10 @@ impl Token {
 	}
 	pub fn tt (&self) -> u8 {
 		return self.tt;
+	}
+	pub fn meta (&mut self, line : usize, chara : usize) {
+		self.line = line;
+		self.chara = chara;
 	}
 }
 
@@ -295,6 +308,8 @@ impl std::clone::Clone for Token {
 			length : self.length,
 			data_type : self.data_type,
 			escape : false,
+			line : self.line,
+			chara : self.chara,
 			tt : self.tt,
 		}
 	}

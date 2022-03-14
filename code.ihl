@@ -1,4 +1,4 @@
-#[terminating_newlines=2]
+#[terminating_newlines=1]
 #[print_sep_spaces=1]
 #[print_sep_value=", "]
 //#[token_block__NLN=true]
@@ -31,22 +31,19 @@
 // print lb[0];
 
 func plusone (y) {
-    y += 1;
-    return $y;
+    return $y + 1;
 }
 
 func repeatop (f, v, x) {
-    // dumptoks;
     r = f($v);
     for i in 0..$x - 1 {
-        log "dump";
-        dumptoks;
-        r += f(r);
+        parent r = f($r);
     }
     return $r;
 }
 
-print repeatop(plusone, 0, 10);
+
+print repeatop(plusone, 10, 10);
 
 //#[terminating_newlines=1]
 //log "MAIN PROGRAM DUMP";
