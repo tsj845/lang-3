@@ -208,6 +208,9 @@ impl VarScopes {
 		if self.find_gv(name.to_string()) == 1 {
 			return;
 		}
+		if name == ";" {
+			panic!("fucking semicolon");
+		}
 		let flag = self.find_flag(name.to_string());
 		if flag % 2 == 0 && flag < 3 {
 			self.set_r(name, value);

@@ -2,7 +2,7 @@ use regex::Regex;
 use lazy_static::lazy_static;
 
 use crate::statics::*;
-use crate::static_colors::*;
+// use crate::static_colors::*;
 
 fn get_complement_surround (given : char) -> char {
 	match given {
@@ -224,7 +224,7 @@ fn process_fun (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 		}
 		ft.push(tokens.remove(i));
 	}
-	f.list = Some(preprocess(ft));
+	f.list.as_mut().unwrap().extend(preprocess(ft));
 	// println!("{}", f.value);
 	// printlst::<Token>(&f.list.as_ref().unwrap());
 	return (i, tokens, f);
@@ -261,6 +261,58 @@ fn process_idx (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 	return (i, tokens, f);
 }
 
+fn process_forloop (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
+	let mut f : Token = Token::news(CTL, "forloop", LIST_TOKEN);
+	let mut ft : Vec<Token> = Vec::new();
+	let mut depth : u32 = 1;
+	tokens.remove(i);
+	loop {
+		if i >= tokens.len() {
+			panic!("loop def end not found");
+		}
+		if tokens[i].id == GRP && tokens[i].value == "{" {
+			tokens.remove(i);
+			f.push(Token::news(SEP, "*", BASE_TOKEN));
+			break;
+		}
+		if tokens[i].id == KEY && tokens[i].value == "in" {
+			tokens.remove(i);
+			f.push(Token::news(SEP, "*", BASE_TOKEN));
+			continue;
+		}
+		if tokens[i].id == DOT && tokens[i+1].id == DOT {
+			tokens.remove(i);
+			tokens.remove(i);
+			f.push(Token::news(SEP, "..", BASE_TOKEN));
+			continue;
+		}
+		f.push(tokens.remove(i));
+	}
+	loop {
+		if i >= tokens.len() {
+			panic!("loop end not found");
+		}
+		if tokens[i].id == GRP {
+			if tokens[i].value == "}" {
+				depth -= 1;
+				if depth == 0 {
+					tokens.remove(i);
+					break;
+				}
+			} else if tokens[i].value == "{" {
+				depth += 1;
+				if depth == 1 {
+					tokens.remove(i);
+					continue;
+				}
+			}
+		}
+		ft.push(tokens.remove(i));
+	}
+	f.list.as_mut().unwrap().extend(preprocess(ft));
+	return (i, tokens, f);
+}
+
 pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
 	// println!("{}PREPROCESS\x1b[0m", INTERPRETER_DEBUG_BRIGHTPINK);
 	// printlst::<Token>(&tokens);
@@ -284,7 +336,7 @@ pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
 					// println!("TOKENI");
 					// println!("{}, {}", tokens[i], i);
 					let x : (usize, Vec<Token>, Token) = process_idx(i, tokens);
-					let oi = i;
+					// let oi = i;
 					i = x.0;
 					tokens = x.1;
 					// println!("LXLST");
@@ -302,11 +354,23 @@ pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
 			l = tokens.len();
 			fv.push(x.2);
 			continue;
+		} else if tokens[i].id == KEY && tokens[i].value == "for" {
+			let x : (usize, Vec<Token>, Token) = process_forloop(i, tokens);
+			i = x.0;
+			tokens = x.1;
+			// println!("AFTER FOR LOOP");
+			// printlst(&tokens);
+			l = tokens.len();
+			fv.push(x.2);
+			// printlst(&fv);
+			continue;
 		} else {
 			fv.push(tokens[i].clone());
 		}
 		i += 1;
 	}
+	// println!("FINAL PRINT");
+	// printlst(&fv);
 	return fv;
 }
 
