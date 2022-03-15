@@ -45,7 +45,6 @@ pub const NUL : u8 = 0;
 pub const FUN : u8 = 1;
 pub const REF : u8 = 2;
 pub const LIT : u8 = 3;
-// index
 pub const IDX : u8 = 4;
 pub const KEY : u8 = 5;
 pub const MAT : u8 = 6;
@@ -59,7 +58,6 @@ pub const SEP : u8 = 13;
 pub const SYM : u8 = 14;
 pub const GRP : u8 = 15;
 pub const DOT : u8 = 16;
-// contol flow
 pub const CTL : u8 = 17;
 pub const NLN : u8 = 18;
 pub const UDF : u8 = 19;
@@ -69,7 +67,7 @@ pub const TOKEN_ARRAY : [&str; 22] = ["NUL", "FUN", "REF", "LIT", "IDX", "KEY", 
 pub const FILE_EXT : &str = ".ihl";
 
 // program keywords
-pub const KEYWORDS : [&str; 20] = ["gloabl", "local", "unique", "parent", "func", "print", "of", "dumpscope", "rm", "garbage", "log", "return", "dumptoks", "dumplc", "dumpflags", "in", "for", "HALT", "break", "continue"];
+pub const KEYWORDS : [&str; 22] = ["gloabl", "local", "unique", "parent", "func", "print", "dumpscope", "rm", "garbage", "log", "return", "dumptoks", "dumplc", "dumpflags", "in", "for", "HALT", "break", "continue", "while", "if", "else"];
 
 // tokenization regex patterns
 pub const WORD_RE_PAT : &str = r"[[:alpha:]]+[[:word:]]*";
@@ -77,10 +75,11 @@ pub const CONTAINER_RE_PAT : &str = r#"[{\["(]"#;
 pub const NUMBER_RE_PAT : &str = r"^(0b[01]+|0x[0-9a-f]+|[0-9]+(\.[0-9]+)?)";
 pub const DECI_RE_PAT : &str = r"[0-9]+\.[0-9]+";
 pub const LITERAL_RE_PAT : &str = r"true|false|null";
+pub const LOGIC_RE_PAT : &str = r"[!^%|&]";
 pub const PAREN_RE_PAT : &str = r"[()]";
 pub const GROUP_RE_PAT : &str = r"$?[{}\[\]]";
 pub const SEPER_RE_PAT : &str = r"[:,]";
-pub const KEYWD_RE_PAT : &str = r"\b(global|local|unique|parent|func|print|of|dumpscope|rm|garbage|log|return|dumptoks|dumplc|dumpflags|in|for|HALT|break|continue)\b";
+pub const KEYWD_RE_PAT : &str = r"\b(global|local|unique|parent|func|print|dumpscope|rm|garbage|log|return|dumptoks|dumplc|dumpflags|in|for|HALT|break|continue|while|if|else)\b";
 pub const ASIGN_RE_PAT : &str = r"=";
 pub const MATHM_RE_PAT : &str = r"[-+*/]";
 pub const TOKEN_STR_RE_PAT : &str = r#"".*""#;
@@ -122,6 +121,7 @@ impl Token {
 			static ref BIN_NUM_RE : Regex = Regex::new(TOKEN_BIN_NUM_RE_PAT).unwrap();
 			static ref HEX_NUM_RE : Regex = Regex::new(TOKEN_HEX_NUM_RE_PAT).unwrap();
 			static ref DEC_NUM_RE : Regex = Regex::new(TOKEN_DEC_NUM_RE_PAT).unwrap();
+			static ref LIT_RE : Regex = Regex::new(LITERAL_RE_PAT).unwrap();
 			static ref REPLACER : Replacer = Replacer::new();
 		}
 		let mut data_type : u8 = DT_UDF;
@@ -155,6 +155,8 @@ impl Token {
 					}
 					value = n.to_string();
 				}
+			} else if LIT_RE.is_match(&value) {
+				data_type = DT_BOL;
 			}
 		} else if id == LST {
 			data_type = DT_LST;
@@ -214,6 +216,24 @@ impl Token {
 	pub fn meta (&mut self, line : usize, chara : usize) {
 		self.line = line;
 		self.chara = chara;
+	}
+	pub fn bool (&self) -> bool {
+		if self.data_type == DT_STR {
+			return self.value.len() > 2;
+		}
+		if self.data_type == DT_NUM {
+			return self.value.parse::<f64>().unwrap() > 0f64;
+		}
+		if self.data_type == DT_BOL {
+			return self.value == "true";
+		}
+		if self.data_type == UDF {
+			return false;
+		}
+		if self.data_type == DT_LST {
+			return self.list.as_ref().unwrap().len() > 0;
+		}
+		return false;
 	}
 }
 

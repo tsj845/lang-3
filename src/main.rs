@@ -140,6 +140,94 @@ impl Parser {
 		let v : i64 = v1.parse().unwrap();
 		return Token::new(LIT, (v/v2.parse::<i64>().unwrap()).to_string(), BASE_TOKEN);
 	}
+	fn bin_and (&self, v1 : String, v2 : String) -> Token {
+		lazy_static! {
+			static ref NUMBER_RE : Regex = Regex::new(NUMBER_RE_PAT).unwrap();
+			static ref DECI_RE : Regex = Regex::new(DECI_RE_PAT).unwrap();
+			// static ref STRING_RE : Regex = Regex::new(STRING_RE_PAT).unwrap();
+		}
+		if !NUMBER_RE.is_match(&v1) || v1.find('.').is_some() {
+			return self.__fault();
+			// if STRING_RE.is_match(&v1) {
+			// 	return self.__fault();
+			// }
+		}
+		if !NUMBER_RE.is_match(&v2) || v2.find('.').is_some() {
+			return self.__fault();
+			// if STRING_RE.is_match(&v2) {
+			// 	return self.__fault();
+			// }
+		}
+		return Token::new(LIT, (v1.parse::<i64>().unwrap() & v2.parse::<i64>().unwrap()).to_string(), BASE_TOKEN);
+	}
+	fn bin_or (&self, v1 : String, v2 : String) -> Token {
+		lazy_static! {
+			static ref NUMBER_RE : Regex = Regex::new(NUMBER_RE_PAT).unwrap();
+			static ref DECI_RE : Regex = Regex::new(DECI_RE_PAT).unwrap();
+			// static ref STRING_RE : Regex = Regex::new(STRING_RE_PAT).unwrap();
+		}
+		if !NUMBER_RE.is_match(&v1) || v1.find('.').is_some() {
+			return self.__fault();
+			// if STRING_RE.is_match(&v1) {
+			// 	return self.__fault();
+			// }
+		}
+		if !NUMBER_RE.is_match(&v2) || v2.find('.').is_some() {
+			return self.__fault();
+			// if STRING_RE.is_match(&v2) {
+			// 	return self.__fault();
+			// }
+		}
+		return Token::new(LIT, (v1.parse::<i64>().unwrap() | v2.parse::<i64>().unwrap()).to_string(), BASE_TOKEN);
+	}
+	fn bin_xor (&self, v1 : String, v2 : String) -> Token {
+		lazy_static! {
+			static ref NUMBER_RE : Regex = Regex::new(NUMBER_RE_PAT).unwrap();
+			static ref DECI_RE : Regex = Regex::new(DECI_RE_PAT).unwrap();
+			// static ref STRING_RE : Regex = Regex::new(STRING_RE_PAT).unwrap();
+		}
+		if !NUMBER_RE.is_match(&v1) || v1.find('.').is_some() {
+			return self.__fault();
+			// if STRING_RE.is_match(&v1) {
+			// 	return self.__fault();
+			// }
+		}
+		if !NUMBER_RE.is_match(&v2) || v2.find('.').is_some() {
+			return self.__fault();
+			// if STRING_RE.is_match(&v2) {
+			// 	return self.__fault();
+			// }
+		}
+		return Token::new(LIT, (v1.parse::<i64>().unwrap() ^ v2.parse::<i64>().unwrap()).to_string(), BASE_TOKEN);
+	}
+	fn modulo_op (&self, v1 : String, v2 : String) -> Token {
+		lazy_static! {
+			static ref NUMBER_RE : Regex = Regex::new(NUMBER_RE_PAT).unwrap();
+			static ref DECI_RE : Regex = Regex::new(DECI_RE_PAT).unwrap();
+		}
+		if !NUMBER_RE.is_match(&v1) || v1.find('.').is_some() || !NUMBER_RE.is_match(&v2) || v2.find('.').is_some() {
+			return self.__fault();
+		}
+		return Token::new(LIT, (v1.parse::<i64>().unwrap() % v2.parse::<i64>().unwrap()).to_string(), BASE_TOKEN);
+	}
+	fn log_and (&self, v1 : String, v2 : String) -> Token {
+		lazy_static! {
+			static ref NUMBER_RE : Regex = Regex::new(NUMBER_RE_PAT).unwrap();
+			static ref DECI_RE : Regex = Regex::new(DECI_RE_PAT).unwrap();
+		}
+		let b1 = Token::new(LIT, v1, BASE_TOKEN).bool();
+		let b2 = Token::new(LIT, v2, BASE_TOKEN).bool();
+		return Token::news(LIT, match b1 && b2 {true=>"true",_=>"false"}, BASE_TOKEN);
+	}
+	fn log_or (&self, v1 : String, v2 : String) -> Token {
+		lazy_static! {
+			static ref NUMBER_RE : Regex = Regex::new(NUMBER_RE_PAT).unwrap();
+			static ref DECI_RE : Regex = Regex::new(DECI_RE_PAT).unwrap();
+		}
+		let b1 = Token::new(LIT, v1, BASE_TOKEN).bool();
+		let b2 = Token::new(LIT, v2, BASE_TOKEN).bool();
+		return Token::news(LIT, match b1 || b2 {true=>"true",_=>"false"}, BASE_TOKEN);
+	}
 	fn operation (&self, operand : &str, v1 : String, v2 : String) -> Token {
 		if operand == "+" {
 			return self.addition(v1, v2);
@@ -149,6 +237,18 @@ impl Parser {
 			return self.multiplication(v1, v2);
 		} else if operand == "/" {
 			return self.division(v1, v2);
+		} else if operand == "&" {
+			return self.bin_and(v1, v2);
+		} else if operand == "|" {
+			return self.bin_or(v1, v2);
+		} else if operand == "%" {
+			return self.modulo_op(v1, v2);
+		} else if operand == "^" {
+			return self.bin_xor(v1, v2);
+		} else if operand == "&&" {
+			return self.log_and(v1, v2);
+		} else if operand == "||" {
+			return self.log_or(v1, v2);
 		}
 		return self.__fault();
 	}
@@ -191,21 +291,6 @@ impl Parser {
 			r = self.memory.get(&r.value);
 		}
 	}
-	// fn gen_op (&self, mut t1 : Token, t2 : Token, mut t3 : Token) -> Token {
-	// 	if t1.id == REF {
-	// 		t1 = self.deref(t1);
-	// 	}
-	// 	if t3.id == REF {
-	// 		t3 = self.deref(t3);
-	// 	}
-	// 	if (t2.id > 6 || t2.id < 5) || (t1.id > 4 && t1.id < 7) || (t3.id > 4 && t3.id < 7) {
-	// 		return self.__fault();
-	// 	}
-	// 	if t2.id == 5 {
-	// 		return self.operation(&t2.value, t1.value, t3.value);
-	// 	}
-	// 	return self.__fault();
-	// }
 	fn printop (&mut self, mut i : usize, tokens : &Vec<Token>) -> usize {
 		i += 1;
 		let l = tokens.len();
@@ -398,7 +483,7 @@ impl Parser {
 			// println!("\x1b[38;2;255;0;255m{}\x1b[39m", toks[i]);
 			if toks[i].id == LIT || toks[i].id == REF {
 				copt = self.derefb(&toks[i]);
-			} else if toks[i].id == MAT {
+			} else if toks[i].id == MAT || toks[i].id == LOG {
 				// println!("BEFORE MATH: {}", i);
 				i += 1;
 				let mut optoks : Vec<Token> = Vec::new();
@@ -426,8 +511,6 @@ impl Parser {
 				// println!("COPT: {}", copt);
 				i += 1;
 				l = toks.len();
-			} else if toks[i].id == LOG {
-				// do logical operations
 			} else if toks[i].id == DOT {
 				if self.BINDINGS.check_valid(&self.derefb(&toks[i-1]), &toks[i+1].value) {
 					// println!("BINDING {}, {}", toks[i-1].value, toks[i+1].value);
@@ -550,6 +633,29 @@ impl Parser {
 			}
 			start += 1;
 		}
+		self.memory.rem_scope();
+		return i;
+	}
+	fn eval_if_block (&mut self, i : usize, tokens : &mut Vec<Token>) -> usize {
+		let t : Vec<Token> = self.derefb(&tokens[i]).list.as_ref().unwrap().clone();
+		let mut ls : Vec<Token> = Vec::new();
+		let mut ind : usize = 0;
+		loop {
+			if ind >= t.len() {
+				break;
+			}
+			if t[ind].id == SEP && t[ind].value == "*" {
+				break;
+			}
+			ls.push(t[ind].clone());
+			ind += 1;
+		}
+		if !self.eval_exp(ls).bool() {
+			return i;
+		}
+		tokens.remove(i-1);
+		self.memory.new_scope();
+		self.eval(t.clone());
 		self.memory.rem_scope();
 		return i;
 	}
@@ -696,31 +802,6 @@ impl Parser {
 						self.func_call(token_index+2, &mut tokens);
 						v2 = self.derefb(&tokens[token_index+1]).value;
 					}
-					// println!("{}v1:{},v2:{},op:{}\x1b[39m", INTERPRETER_DEBUG_ORANGE, self.memory.get(varname).value, v2, operand);
-					// let mut r : Token = tokens[token_index+1].clone();
-					// if self.derefb(&r).id == FUN && tokens[token_index+2].id == PAR && tokens[token_index+2].value == "(" {
-					// 	self.func_call(token_index+2, &mut tokens);
-					// 	tokens_length = tokens.len();
-					// 	r = tokens[token_index+1].clone();
-					// 	// token_index += 1;
-					// }
-					// let mut lst : Vec<Token> = Vec::new();
-					// lst.push(r.clone());
-					// let mut ind : usize = token_index+2;
-					// loop {
-					// 	if ind >= tokens_length {
-					// 		break;
-					// 	}
-					// 	if tokens[ind].id == NLN {
-					// 		break;
-					// 	}
-					// 	lst.push(tokens[ind].clone());
-					// 	ind += 1;
-					// }
-					// println!("LIST");
-					// printlst(&lst);
-					// r = self.eval_exp(lst);
-					// let v2 = r.value.clone();
 					if subscript {
 						let name = tokens[imt].value.clone();
 						let is_ref = tokens[imt].id == REF;
@@ -775,6 +856,9 @@ impl Parser {
 			} else if token.id == CTL {
 				if token.value == "forloop" {
 					token_index = self.eval_for_loop(token_index, &mut tokens);
+					tokens_length = tokens.len();
+				} else if token.value == "ifblock" {
+					token_index = self.eval_if_block(token_index, &mut tokens);
 					tokens_length = tokens.len();
 				}
 			}
@@ -935,6 +1019,7 @@ fn main () {
 	file.read_to_string(&mut contents).expect("FAILURE");
 	let contents : Vec<_> = contents.split("\n").collect();
 	let tokens : Vec<Token> = tokenize(contents);
+	// printlst(&tokens);
 	let mut program : Parser = Parser::new(tokens);
 	program.__init();
 	println!("\n{}program output:\x1b[39m\n", INTERPRETER_LIME);

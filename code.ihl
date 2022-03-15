@@ -4,32 +4,6 @@
 //#[token_block__NLN=true]
 //#[token_block__MET=true]
 
-// la = $["a", $["b"]];
-
-// lb = la[1];
-
-// da = ${"a":"b"};
-
-// print da["a"];
-
-// da["a"] = "d";
-
-// print da["a"];
-
-// print System.lime + "SYSLIME" + System.default;
-
-// print System.cyan + "DUMP LB" + System.default;
-
-// x = 0;
-
-// print 0.to_string(), x + 1 * 100, "xyz".length;
-
-// print "90".is_digit(), "abc".is_alpha(), "90".is_alpha(), "abc".is_digit();
-
-// lb[0] = "c";
-
-// print lb[0];
-
 func plusone (y) {
     return $y + 1;
 }
@@ -37,13 +11,19 @@ func plusone (y) {
 func repeatop (f, v, x) {
     r = f($v);
     for i in 0..$x - 1 {
-        parent r = f($r);
+    	r = f($r);
     }
     return $r;
 }
 
 
 print repeatop(plusone, 10, 10);
+
+print true || true && false || null;
+
+if false || true && 10 {
+	print "truthful";
+}
 
 //#[terminating_newlines=1]
 //log "MAIN PROGRAM DUMP";

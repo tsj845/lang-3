@@ -313,6 +313,88 @@ fn process_forloop (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, T
 	return (i-1, tokens, f);
 }
 
+fn process_whileloop (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
+	let mut f : Token = Token::news(CTL, "whileloop", LIST_TOKEN);
+	let mut ft : Vec<Token> = Vec::new();
+	let mut depth : u32 = 1;
+	tokens.remove(i);
+	loop {
+		if i >= tokens.len() {
+			panic!("loop def end not found");
+		}
+		if tokens[i].id == GRP && tokens[i].value == "{" {
+			tokens.remove(i);
+			f.push(Token::news(SEP, "*", BASE_TOKEN));
+			break;
+		}
+		f.push(tokens.remove(i));
+	}
+	loop {
+		if i >= tokens.len() {
+			panic!("loop end not found");
+		}
+		if tokens[i].id == GRP {
+			if tokens[i].value == "}" {
+				depth -= 1;
+				if depth == 0 {
+					tokens.remove(i);
+					break;
+				}
+			} else if tokens[i].value == "{" {
+				depth += 1;
+				if depth == 1 {
+					tokens.remove(i);
+					continue;
+				}
+			}
+		}
+		ft.push(tokens.remove(i));
+	}
+	f.list.as_mut().unwrap().extend(preprocess(ft));
+	return (i-1, tokens, f);
+}
+
+fn process_ifblock (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
+	let mut f : Token = Token::news(CTL, "ifblock", LIST_TOKEN);
+	let mut ft : Vec<Token> = Vec::new();
+	let mut depth : u32 = 1;
+	tokens.remove(i);
+	loop {
+		if i >= tokens.len() {
+			panic!("if def end not found");
+		}
+		if tokens[i].id == GRP && tokens[i].value == "{" {
+			tokens.remove(i);
+			f.push(Token::news(SEP, "*", BASE_TOKEN));
+			break;
+		}
+		f.push(tokens.remove(i));
+	}
+	loop {
+		if i >= tokens.len() {
+			panic!("if end not found");
+		}
+		if tokens[i].id == GRP {
+			if tokens[i].value == "}" {
+				depth -= 1;
+				if depth == 0 {
+					tokens.remove(i);
+					break;
+				}
+			} else if tokens[i].value == "{" {
+				depth += 1;
+				if depth == 1 {
+					tokens.remove(i);
+					continue;
+				}
+			}
+		}
+		ft.push(tokens.remove(i));
+	}
+	f.list.as_mut().unwrap().extend(preprocess(ft));
+	return (i-1, tokens, f);
+}
+
 pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
 	// println!("{}PREPROCESS\x1b[0m", INTERPRETER_DEBUG_BRIGHTPINK);
 	// printlst::<Token>(&tokens);
@@ -347,23 +429,43 @@ pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
 					continue;
 				}
 			}
-		} else if tokens[i].id == KEY && tokens[i].value == "func" {
-			let x : (usize, Vec<Token>, Token) = process_fun(i, tokens);
-			i = x.0;
-			tokens = x.1;
-			l = tokens.len();
-			fv.push(x.2);
-			continue;
-		} else if tokens[i].id == KEY && tokens[i].value == "for" {
-			let x : (usize, Vec<Token>, Token) = process_forloop(i, tokens);
-			i = x.0;
-			tokens = x.1;
-			// println!("AFTER FOR LOOP");
-			// printlst(&tokens);
-			l = tokens.len();
-			fv.push(x.2);
-			// printlst(&fv);
-			continue;
+		} else if tokens[i].id == KEY {
+			if tokens[i].value == "func" {
+				let x : (usize, Vec<Token>, Token) = process_fun(i, tokens);
+				i = x.0;
+				tokens = x.1;
+				l = tokens.len();
+				fv.push(x.2);
+				continue;
+			}
+			if tokens[i].value == "for" {
+				let x : (usize, Vec<Token>, Token) = process_forloop(i, tokens);
+				i = x.0;
+				tokens = x.1;
+				// println!("AFTER FOR LOOP");
+				// printlst(&tokens);
+				l = tokens.len();
+				fv.push(x.2);
+				// printlst(&fv);
+				continue;
+			}
+			if tokens[i].value == "while" {
+				let x : (usize, Vec<Token>, Token) = process_whileloop(i, tokens);
+				i = x.0;
+				tokens = x.1;
+				l = tokens.len();
+				fv.push(x.2);
+				continue;
+			}
+			if tokens[i].value == "if" {
+				let x : (usize, Vec<Token>, Token) = process_ifblock(i, tokens);
+				i = x.0;
+				tokens = x.1;
+				l = tokens.len();
+				fv.push(x.2);
+				continue;
+			}
+			fv.push(tokens[i].clone());
 		} else {
 			fv.push(tokens[i].clone());
 		}
@@ -397,6 +499,8 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 		static ref ASIGN_RE : Regex = Regex::new(ASIGN_RE_PAT).unwrap();
 		// mathmatics
 		static ref MATHM_RE : Regex = Regex::new(MATHM_RE_PAT).unwrap();
+		// logical operatins
+		static ref LOGIC_RE : Regex = Regex::new(LOGIC_RE_PAT).unwrap();
 	}
 	let mut line_index = 0;
 	let lines_len_total = lines.len();
@@ -467,6 +571,17 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 					meta_data.push([line_index, i]);
 					words.push(String::from("$")+&x.1);
 				}
+			} else if line[i] == '&' || line[i] == '|' || line[i] == '!' || line[i] == '^' || line[i] == '%' {
+				meta_data.push([line_index, i]);
+				if line[i] == '&' || line[i] == '|' {
+					if line[i+1] == line[i] {
+						i += 1;
+						words.push(line[i].to_string().repeat(2));
+						i += 1;
+						continue;
+					}
+				}
+				words.push(line[i].to_string());
 			} else {
 				meta_data.push([line_index, i]);
 				words.push(line[i].to_string());
@@ -477,6 +592,7 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 	}
 	let mut tokens : Vec<Token> = Vec::new();
 	let mut c : usize = 0;
+	printlst(&words);
 	for word in words {
 		if word.chars().nth(0).unwrap() == '.' {
 			tokens.push(Token::new(DOT, word, BASE_TOKEN));
@@ -500,6 +616,8 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 			tokens.push(Token::new(ASS, word, BASE_TOKEN));
 		} else if MATHM_RE.is_match(&word) {
 			tokens.push(Token::new(MAT, word, BASE_TOKEN));
+		} else if LOGIC_RE.is_match(&word) {
+			tokens.push(Token::new(LOG, word, BASE_TOKEN));
 		} else {
 			tokens.push(Token::new(UDF, word, BASE_TOKEN));
 		}
