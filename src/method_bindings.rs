@@ -1,4 +1,5 @@
 use crate::statics::*;
+use crate::parser::Parser;
 use std::collections::HashMap;
 
 // this module provides bindings from types to rust code
@@ -78,10 +79,13 @@ impl Bindings<'_> {
         return false;
     }
 	// checks that the call is valid
-	pub fn check_valid (&self, t : &Token, target : &str) -> bool {
+	pub fn check_valid (&self, mods : &HashMap<String, Parser>, t : &Token, target : &str) -> bool {
 		if t.data_type == DT_OBJ {
 			return t.dict.as_ref().unwrap().contains_key(target);
 		}
+        if t.data_type == DT_MOD {
+            return match mods.contains_key(&t.value) {true=>mods.get(&t.value).unwrap().memory.get(target).id != UDF,_=>false};
+        }
 		return self.validate(t.data_type, target);
 	}
 }

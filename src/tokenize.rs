@@ -135,6 +135,7 @@ fn process_grp (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 			}
 		}
 		let mut f : Token = Token::news(DCT, "DCT", DICT_TOKEN);
+		f.meta(tokens[i].line, tokens[i].chara);
 		let mut c : usize = 0;
 		let l = lst.len();
 		loop {
@@ -173,6 +174,7 @@ fn process_grp (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 		}
 		lst = preprocess(lst);
 		let mut f : Token = Token::news(LST, "LST", LIST_TOKEN);
+		f.meta(tokens[i].line, tokens[i].chara);
 		for t in lst {
 			if t.id != SEP {
 				f.push(t.clone());
@@ -187,6 +189,7 @@ fn process_grp (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 
 fn process_fun (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
 	let mut f : Token = Token::new(FUN, tokens[i+1].value.clone(), LIST_TOKEN);
+	f.meta(tokens[i].line, tokens[i].chara);
 	let mut ft : Vec<Token> = Vec::new();
 	let mut depth : u32 = 0;
 	tokens.remove(i);
@@ -234,6 +237,7 @@ fn process_idx (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 	// println!("{}PREPROCESS IDX\x1b[0m", INTERPRETER_DEBUG_BRIGHTPINK);
 	// printlst::<Token>(&tokens);
 	let mut f : Token = Token::news(IDX, "IDX", LIST_TOKEN);
+	f.meta(tokens[i].line, tokens[i].chara);
 	let mut ft : Vec<Token> = Vec::new();
 	let mut depth : u32 = 0;
 	loop {
@@ -263,6 +267,7 @@ fn process_idx (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 
 fn process_forloop (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
 	let mut f : Token = Token::news(CTL, "forloop", LIST_TOKEN);
+	f.meta(tokens[i].line, tokens[i].chara);
 	let mut ft : Vec<Token> = Vec::new();
 	let mut depth : u32 = 1;
 	tokens.remove(i);
@@ -315,6 +320,7 @@ fn process_forloop (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, T
 
 fn process_whileloop (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
 	let mut f : Token = Token::news(CTL, "whileloop", LIST_TOKEN);
+	f.meta(tokens[i].line, tokens[i].chara);
 	let mut ft : Vec<Token> = Vec::new();
 	let mut depth : u32 = 1;
 	tokens.remove(i);
@@ -356,6 +362,7 @@ fn process_whileloop (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>,
 
 fn process_ifblock (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
 	let mut f : Token = Token::news(CTL, "ifblock", LIST_TOKEN);
+	f.meta(tokens[i].line, tokens[i].chara);
 	let mut ft : Vec<Token> = Vec::new();
 	let mut depth : u32 = 1;
 	tokens.remove(i);
@@ -373,6 +380,37 @@ fn process_ifblock (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, T
 	loop {
 		if i >= tokens.len() {
 			panic!("if end not found");
+		}
+		if tokens[i].id == GRP {
+			if tokens[i].value == "}" {
+				depth -= 1;
+				if depth == 0 {
+					tokens.remove(i);
+					break;
+				}
+			} else if tokens[i].value == "{" {
+				depth += 1;
+				if depth == 1 {
+					tokens.remove(i);
+					continue;
+				}
+			}
+		}
+		ft.push(tokens.remove(i));
+	}
+	f.list.as_mut().unwrap().extend(preprocess(ft));
+	return (i-1, tokens, f);
+}
+
+fn process_elseblock (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
+	let mut f : Token = Token::news(CTL, "elseblock", LIST_TOKEN);
+	f.meta(tokens[i].line, tokens[i].chara);
+	let mut ft : Vec<Token> = Vec::new();
+	let mut depth : u32 = 0;
+	tokens.remove(i);
+	loop {
+		if i >= tokens.len() {
+			panic!("else end not found");
 		}
 		if tokens[i].id == GRP {
 			if tokens[i].value == "}" {
@@ -464,6 +502,13 @@ pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
 				l = tokens.len();
 				fv.push(x.2);
 				continue;
+			}
+			if tokens[i].value == "else" {
+				let x : (usize, Vec<Token>, Token) = process_elseblock(i, tokens);
+				i = x.0;
+				tokens = x.1;
+				l = tokens.len();
+				fv.push(x.2);
 			}
 			fv.push(tokens[i].clone());
 		} else {
@@ -592,7 +637,7 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 	}
 	let mut tokens : Vec<Token> = Vec::new();
 	let mut c : usize = 0;
-	printlst(&words);
+	// printlst(&words);
 	for word in words {
 		if word.chars().nth(0).unwrap() == '.' {
 			tokens.push(Token::new(DOT, word, BASE_TOKEN));

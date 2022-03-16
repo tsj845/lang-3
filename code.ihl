@@ -1,31 +1,24 @@
+linkup other_file;
+module my_code;
+
+print "my_code.object_var:", my_code.object_var;
+
+print "Z", z;
+
+v = 2;
+
+while v > 0 {
+    v -= 1;
+    print $v;
+}
+
 #[terminating_newlines=1]
 #[print_sep_spaces=1]
 #[print_sep_value=", "]
 //#[token_block__NLN=true]
 //#[token_block__MET=true]
 
-func plusone (y) {
-    return $y + 1;
-}
+#[terminating_newlines=1]
+log "MAIN PROGRAM DUMP";
 
-func repeatop (f, v, x) {
-    r = f($v);
-    for i in 0..$x - 1 {
-    	r = f($r);
-    }
-    return $r;
-}
-
-
-print repeatop(plusone, 10, 10);
-
-print true || true && false || null;
-
-if false || true && 10 {
-	print "truthful";
-}
-
-//#[terminating_newlines=1]
-//log "MAIN PROGRAM DUMP";
-
-//dumpscope 2;
+dumpscope 2;

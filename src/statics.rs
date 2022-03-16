@@ -63,11 +63,13 @@ pub const NLN : u8 = 18;
 pub const UDF : u8 = 19;
 pub const MET : u8 = 20;
 pub const SIG : u8 = 21;
-pub const TOKEN_ARRAY : [&str; 22] = ["NUL", "FUN", "REF", "LIT", "IDX", "KEY", "MAT", "LOG", "ASS", "PAR", "LST", "DCT", "OBJ", "SEP", "SYM", "GRP", "DOT", "CTL", "NLN", "UDF", "MET", "SIG"];
+pub const BND : u8 = 22;
+pub const MOD : u8 = 23;
+pub const TOKEN_ARRAY : [&str; 24] = ["NUL", "FUN", "REF", "LIT", "IDX", "KEY", "MAT", "LOG", "ASS", "PAR", "LST", "DCT", "OBJ", "SEP", "SYM", "GRP", "DOT", "CTL", "NLN", "UDF", "MET", "SIG", "BND", "MOD"];
 pub const FILE_EXT : &str = ".ihl";
 
 // program keywords
-pub const KEYWORDS : [&str; 22] = ["gloabl", "local", "unique", "parent", "func", "print", "dumpscope", "rm", "garbage", "log", "return", "dumptoks", "dumplc", "dumpflags", "in", "for", "HALT", "break", "continue", "while", "if", "else"];
+pub const KEYWORDS : [&str; 27] = ["gloabl", "local", "unique", "parent", "func", "print", "dumpscope", "rm", "garbage", "log", "return", "dumptoks", "dumplc", "dumpflags", "in", "for", "HALT", "break", "continue", "while", "if", "else", "linkup", "module", "readonly", "private", "class"];
 
 // tokenization regex patterns
 pub const WORD_RE_PAT : &str = r"[[:alpha:]]+[[:word:]]*";
@@ -75,11 +77,11 @@ pub const CONTAINER_RE_PAT : &str = r#"[{\["(]"#;
 pub const NUMBER_RE_PAT : &str = r"^(0b[01]+|0x[0-9a-f]+|[0-9]+(\.[0-9]+)?)";
 pub const DECI_RE_PAT : &str = r"[0-9]+\.[0-9]+";
 pub const LITERAL_RE_PAT : &str = r"true|false|null";
-pub const LOGIC_RE_PAT : &str = r"[!^%|&]";
+pub const LOGIC_RE_PAT : &str = r"[!^%|&><]|(<=|>=)";
 pub const PAREN_RE_PAT : &str = r"[()]";
 pub const GROUP_RE_PAT : &str = r"$?[{}\[\]]";
 pub const SEPER_RE_PAT : &str = r"[:,]";
-pub const KEYWD_RE_PAT : &str = r"\b(global|local|unique|parent|func|print|dumpscope|rm|garbage|log|return|dumptoks|dumplc|dumpflags|in|for|HALT|break|continue|while|if|else)\b";
+pub const KEYWD_RE_PAT : &str = r"\b(global|local|unique|parent|func|print|dumpscope|rm|garbage|log|return|dumptoks|dumplc|dumpflags|in|for|HALT|break|continue|while|if|else|linkup|module|readonly|private|class)\b";
 pub const ASIGN_RE_PAT : &str = r"=";
 pub const MATHM_RE_PAT : &str = r"[-+*/]";
 pub const TOKEN_STR_RE_PAT : &str = r#"".*""#;
@@ -99,6 +101,7 @@ pub const DT_BOL : u8 = 3;
 pub const DT_LST : u8 = 4;
 pub const DT_DCT : u8 = 5;
 pub const DT_OBJ : u8 = 6;
+pub const DT_MOD : u8 = 7;
 
 pub struct Token {
 	pub id : u8,
@@ -164,7 +167,10 @@ impl Token {
 			data_type = DT_DCT;
 		} else if id == OBJ {
 			data_type = DT_OBJ;
+		} else if id == MOD {
+			data_type = DT_MOD;
 		}
+		// println!("{}", TOKEN_ARRAY[id as usize]);
 		if tt == BASE_TOKEN {
 			return Token {
 				id : id,
@@ -209,6 +215,9 @@ impl Token {
 	}
 	pub fn news (id : u8, value : &str, tt : u8) -> Token {
 		return Token::new(id, value.to_string(), tt);
+	}
+	pub fn newsb (id : u8, value : &str) -> Token {
+		return Token::new(id, value.to_string(), BASE_TOKEN);
 	}
 	pub fn tt (&self) -> u8 {
 		return self.tt;
@@ -315,6 +324,16 @@ impl Token {
 		}
 		self.length -= 1;
 		return self.list.as_mut().unwrap().remove(key);
+	}
+	pub fn extend (&mut self, v : Vec<Token>) {
+		if self.tt != LIST_TOKEN {
+			panic!("invalid operation");
+		}
+		let l = self.list.as_mut().unwrap();
+		for token in v {
+			self.length += 1;
+			l.push(token);
+		}
 	}
 }
 

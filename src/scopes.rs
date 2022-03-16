@@ -20,6 +20,7 @@ pub struct VarScopes {
 	scope_count : usize,
 	var_flags : Vec<HashMap<String, u8>>,
 	gv_flags : HashMap<String, u8>,
+	inter_flags : HashMap<String, u8>,
 }
 
 impl VarScopes {
@@ -29,6 +30,7 @@ impl VarScopes {
 			scope_count : 1,
 			var_flags : vec![HashMap::new()],
 			gv_flags : HashMap::new(),
+			inter_flags : HashMap::new(),
 		}
 	}
 	pub fn dump_flags (&self) {
@@ -269,5 +271,11 @@ impl VarScopes {
 			self.scopes[i].clear();
 			i += 1;
 		}
+	}
+	pub fn inter_flag_set (&mut self, varname : &str, flag : u8) {
+		self.inter_flags.insert(varname.to_owned(), flag);
+	}
+	pub fn inter_flag_get (&self, varname : &str) -> u8 {
+		return self.inter_flags.get(varname).unwrap_or(&0u8).clone();
 	}
 }
