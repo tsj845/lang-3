@@ -1,1 +1,10 @@
 object_var = 10;
+
+func xyz (uncn) {
+    if String(uncn).is_digit() {
+        n = Number(uncn);
+        l = $[2];
+        l.push($n);
+        print sum(l);
+    }
+}

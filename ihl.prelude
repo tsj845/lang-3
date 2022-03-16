@@ -1,0 +1,12 @@
+'''
+input
+REF prompt SEP * KEY return BND input PAR ( REF $prompt PAR )
+'''
+Number
+REF value SEP * KEY return BND Number PAR ( REF $value PAR )
+'''
+String
+REF value SEP * KEY return BND String PAR ( REF $value PAR )
+'''
+sum
+REF list SEP * KEY return BND sum PAR ( REF $list PAR )

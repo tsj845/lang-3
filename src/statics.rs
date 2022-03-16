@@ -65,11 +65,13 @@ pub const MET : u8 = 20;
 pub const SIG : u8 = 21;
 pub const BND : u8 = 22;
 pub const MOD : u8 = 23;
-pub const TOKEN_ARRAY : [&str; 24] = ["NUL", "FUN", "REF", "LIT", "IDX", "KEY", "MAT", "LOG", "ASS", "PAR", "LST", "DCT", "OBJ", "SEP", "SYM", "GRP", "DOT", "CTL", "NLN", "UDF", "MET", "SIG", "BND", "MOD"];
+pub const PTH : u8 = 24;
+pub const PTR : u8 = 25;
+pub const TOKEN_ARRAY : [&str; 26] = ["NUL", "FUN", "REF", "LIT", "IDX", "KEY", "MAT", "LOG", "ASS", "PAR", "LST", "DCT", "OBJ", "SEP", "SYM", "GRP", "DOT", "CTL", "NLN", "UDF", "MET", "SIG", "BND", "MOD", "PTH", "PTR"];
 pub const FILE_EXT : &str = ".ihl";
 
 // program keywords
-pub const KEYWORDS : [&str; 27] = ["gloabl", "local", "unique", "parent", "func", "print", "dumpscope", "rm", "garbage", "log", "return", "dumptoks", "dumplc", "dumpflags", "in", "for", "HALT", "break", "continue", "while", "if", "else", "linkup", "module", "readonly", "private", "class"];
+pub const KEYWORDS : [&str; 31] = ["gloabl", "local", "unique", "parent", "func", "print", "dumpscope", "rm", "garbage", "log", "return", "dumptoks", "dumplc", "dumpflags", "in", "for", "HALT", "break", "continue", "while", "if", "else", "linkup", "module", "readonly", "private", "class", "property", "method", "inheriting", "from"];
 
 // tokenization regex patterns
 pub const WORD_RE_PAT : &str = r"[[:alpha:]]+[[:word:]]*";
@@ -81,7 +83,7 @@ pub const LOGIC_RE_PAT : &str = r"[!^%|&><]|(<=|>=)";
 pub const PAREN_RE_PAT : &str = r"[()]";
 pub const GROUP_RE_PAT : &str = r"$?[{}\[\]]";
 pub const SEPER_RE_PAT : &str = r"[:,]";
-pub const KEYWD_RE_PAT : &str = r"\b(global|local|unique|parent|func|print|dumpscope|rm|garbage|log|return|dumptoks|dumplc|dumpflags|in|for|HALT|break|continue|while|if|else|linkup|module|readonly|private|class)\b";
+pub const KEYWD_RE_PAT : &str = r"\b(global|local|unique|parent|func|print|dumpscope|rm|garbage|log|return|dumptoks|dumplc|dumpflags|in|for|HALT|break|continue|while|if|else|linkup|module|readonly|private|class|property|method|inheriting|from)\b";
 pub const ASIGN_RE_PAT : &str = r"=";
 pub const MATHM_RE_PAT : &str = r"[-+*/]";
 pub const TOKEN_STR_RE_PAT : &str = r#"".*""#;

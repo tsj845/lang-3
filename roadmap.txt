@@ -1,0 +1,13 @@
+implementations {
+    - readonly
+    - from <- (requires data paths and pointers)
+    - class
+    - method
+    - inheriting
+}
+
+plans {
+    - change complex vars to pointers that store a location of actual data that can be used in place
+    - data paths for multi-module pointer support <- (requires pointers)
+    - add proper error support
+}

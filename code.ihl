@@ -1,5 +1,9 @@
 linkup other_file;
 module my_code;
+object_var from my_code;
+
+my_code.xyz($abc);
+my_code.xyz($my_code.object_var);
 
 print "my_code.object_var:", my_code.object_var;
 
@@ -12,13 +16,19 @@ while v > 0 {
     print $v;
 }
 
+class MyClass inheriting System {
+    method init (self) {
+        print "boot";
+    }
+}
+
 #[terminating_newlines=1]
 #[print_sep_spaces=1]
 #[print_sep_value=", "]
 //#[token_block__NLN=true]
 //#[token_block__MET=true]
 
-#[terminating_newlines=1]
-log "MAIN PROGRAM DUMP";
+// #[terminating_newlines=1]
+// log "MAIN PROGRAM DUMP";
 
-dumpscope 2;
+// dumpscope 2;

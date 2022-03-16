@@ -965,7 +965,13 @@ impl Parser {
 				}
 				return Token::new(LIT, init.parse::<i64>().unwrap().to_string(), BASE_TOKEN);
 			}
+			if args[0].data_type == DT_NUM {
+				return args[0].clone();
+			}
 		} else if name == "String" {
+			if args[0].data_type == DT_STR {
+				return args[0].clone();
+			}
 			return Token::new(LIT, String::from("\"")+&args[0].value+"\"", BASE_TOKEN);
 		}
 		return self.__fault();
@@ -1119,6 +1125,61 @@ impl Parser {
 		}
         return (i, self.__fault(), tokens);
     }
+	fn __builtin (&mut self, doc : &str, map : &HashMap<&str, u8>) -> () {
+		if doc.len() < 1 {
+			return;
+		}
+		let mut lines : Vec<&str> = doc.split("\n").collect();
+		if lines.len() < 1 {
+			return;
+		}
+		let mut i : usize = lines.len() - 1;
+		loop {
+			if lines[i].len() == 0 {
+				lines.remove(i);
+			}
+			if i == 0 {
+				break;
+			}
+			i -= 1;
+		}
+		if lines.len() < 2 {
+			return;
+		}
+		let name : &str = lines.remove(0);
+		let mut bi_tok : Token = Token::news(FUN, name, LIST_TOKEN);
+		let tok_strs : Vec<&str> = lines[0].split(" ").collect();
+		let mut i : usize = 0;
+		let l = tok_strs.len();
+		loop {
+			if i >= l {
+				break;
+			}
+			bi_tok.push(Token::newsb(map.get(&tok_strs[i]).unwrap().clone(), tok_strs[i+1]));
+			i += 2;
+		}
+		self.memory.set(name, bi_tok);
+		self.memory.set_protection(name, 1u8);
+	}
+	fn __prelude (&mut self) -> () {
+		let mut contents = String::new();
+		let mut file = match File::open(FILE_EXT[1..].to_owned()+".prelude") {Ok(f)=>f,_=>{return}};
+		match file.read_to_string(&mut contents) {Ok(x)=>x,_=>{return}};
+		let contents : Vec<&str> = contents.split("'''").collect();
+		let mut map : HashMap<&str, u8> = HashMap::new();
+		let mut i : usize = 0;
+		let l = TOKEN_ARRAY.len();
+		loop {
+			if i >= l {
+				break;
+			}
+			map.insert(TOKEN_ARRAY[i], i as u8);
+			i += 1;
+		}
+		for doc in contents {
+			self.__builtin(doc, &map);
+		}
+	}
 	pub fn __init (&mut self) -> () {
 		let mut systok : Token = Token::news(OBJ, "SYS", DICT_TOKEN);
 		systok.setd(String::from("lime"), Token::news(LIT, r#""\x1b[38;2;0;255;0m""#, BASE_TOKEN));
@@ -1130,22 +1191,23 @@ impl Parser {
 		systok.setd(String::from("default"), Token::news(LIT, r#""\x1b[39m""#, BASE_TOKEN));
 		self.memory.set("System", systok);
 		self.memory.set_protection("System", 1u8);
-		let mut bi_input = Token::news(FUN, "input", LIST_TOKEN);
-		bi_input.extend(vec![Token::newsb(REF, "prompt"), Token::newsb(SEP, "*"), Token::newsb(KEY, "return"), Token::newsb(BND, "input"), Token::newsb(PAR, "("), Token::newsb(REF, "$prompt"), Token::newsb(PAR, ")")]);
-		self.memory.set("input", bi_input);
-		self.memory.set_protection("input", 1u8);
-		let mut bi_sum = Token::news(FUN, "sum", LIST_TOKEN);
-		bi_sum.extend(vec![Token::newsb(REF, "list"), Token::newsb(SEP, "*"), Token::newsb(KEY, "return"), Token::newsb(BND, "sum"), Token::newsb(PAR, "("), Token::newsb(REF, "$list"), Token::newsb(PAR, ")")]);
-		self.memory.set("sum", bi_sum);
-		self.memory.set_protection("sum", 1u8);
-		let mut bi_number = Token::news(FUN, "Number", LIST_TOKEN);
-		bi_number.extend(vec![Token::newsb(REF, "value"), Token::newsb(SEP, "*"), Token::newsb(KEY, "return"), Token::newsb(BND, "Number"), Token::newsb(PAR, "("), Token::newsb(REF, "$value"), Token::newsb(PAR, ")")]);
-		self.memory.set("Number", bi_number);
-		self.memory.set_protection("Number", 1u8);
-		let mut bi_string = Token::news(FUN, "String", LIST_TOKEN);
-		bi_string.extend(vec![Token::newsb(REF, "value"), Token::newsb(SEP, "*"), Token::newsb(KEY, "return"), Token::newsb(BND, "String"), Token::newsb(PAR, "("), Token::newsb(REF, "$value"), Token::newsb(PAR, ")")]);
-		self.memory.set("String", bi_string);
-		self.memory.set_protection("String", 1u8);
+		self.__prelude();
+		// let mut bi_input = Token::news(FUN, "input", LIST_TOKEN);
+		// bi_input.extend(vec![Token::newsb(REF, "prompt"), Token::newsb(SEP, "*"), Token::newsb(KEY, "return"), Token::newsb(BND, "input"), Token::newsb(PAR, "("), Token::newsb(REF, "$prompt"), Token::newsb(PAR, ")")]);
+		// self.memory.set("input", bi_input);
+		// self.memory.set_protection("input", 1u8);
+		// let mut bi_sum = Token::news(FUN, "sum", LIST_TOKEN);
+		// bi_sum.extend(vec![Token::newsb(REF, "list"), Token::newsb(SEP, "*"), Token::newsb(KEY, "return"), Token::newsb(BND, "sum"), Token::newsb(PAR, "("), Token::newsb(REF, "$list"), Token::newsb(PAR, ")")]);
+		// self.memory.set("sum", bi_sum);
+		// self.memory.set_protection("sum", 1u8);
+		// let mut bi_number = Token::news(FUN, "Number", LIST_TOKEN);
+		// bi_number.extend(vec![Token::newsb(REF, "value"), Token::newsb(SEP, "*"), Token::newsb(KEY, "return"), Token::newsb(BND, "Number"), Token::newsb(PAR, "("), Token::newsb(REF, "$value"), Token::newsb(PAR, ")")]);
+		// self.memory.set("Number", bi_number);
+		// self.memory.set_protection("Number", 1u8);
+		// let mut bi_string = Token::news(FUN, "String", LIST_TOKEN);
+		// bi_string.extend(vec![Token::newsb(REF, "value"), Token::newsb(SEP, "*"), Token::newsb(KEY, "return"), Token::newsb(BND, "String"), Token::newsb(PAR, "("), Token::newsb(REF, "$value"), Token::newsb(PAR, ")")]);
+		// self.memory.set("String", bi_string);
+		// self.memory.set_protection("String", 1u8);
 	}
 	pub fn run (&mut self) -> u8 {
 		self.memory.new_scope();
@@ -1159,6 +1221,6 @@ fn read_in_file (filename : &str) -> Vec<Token> {
 	let mut file = match File::open(filename.to_owned()+FILE_EXT) {Ok(f)=>f,_=>{return Vec::new()}};
 	let mut contents = String::new();
 	match file.read_to_string(&mut contents) {Ok(x)=>x,_=>{return Vec::new()}};
-	let contents : Vec<_> = contents.split("\n").collect();
+	let contents : Vec<&str> = contents.split("\n").collect();
 	return tokenize(contents);
 }

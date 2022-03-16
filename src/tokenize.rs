@@ -399,7 +399,7 @@ fn process_ifblock (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, T
 		ft.push(tokens.remove(i));
 	}
 	f.list.as_mut().unwrap().extend(preprocess(ft));
-	return (i-1, tokens, f);
+	return (match i>0{true=>i-1,_=>i}, tokens, f);
 }
 
 fn process_elseblock (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
