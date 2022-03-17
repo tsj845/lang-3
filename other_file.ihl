@@ -1,5 +1,1 @@
 print "other file!!!";
-
-z = 0;
-
-abc = input("abc:");

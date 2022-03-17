@@ -4,6 +4,9 @@ use std::collections::HashMap;
 use lazy_static::lazy_static;
 use regex::Regex;
 
+// data for interpreter info()
+pub const VERSION : &str = "β1.0.class";
+
 // a print operation that can accept any number of arguments then prints them
 #[macro_export]
 macro_rules! printv {
@@ -71,7 +74,7 @@ pub const TOKEN_ARRAY : [&str; 26] = ["NUL", "FUN", "REF", "LIT", "IDX", "KEY", 
 pub const FILE_EXT : &str = ".ihl";
 
 // program keywords
-pub const KEYWORDS : [&str; 31] = ["gloabl", "local", "unique", "parent", "func", "print", "dumpscope", "rm", "garbage", "log", "return", "dumptoks", "dumplc", "dumpflags", "in", "for", "HALT", "break", "continue", "while", "if", "else", "linkup", "module", "readonly", "private", "class", "property", "method", "inheriting", "from"];
+pub const KEYWORDS : [&str; 32] = ["gloabl", "local", "unique", "parent", "func", "print", "dumpscope", "rm", "garbage", "log", "return", "dumptoks", "dumplc", "dumpflags", "in", "for", "HALT", "break", "continue", "while", "if", "else", "linkup", "module", "readonly", "private", "class", "property", "method", "inheriting", "from", "dumpobj"];
 
 // tokenization regex patterns
 pub const WORD_RE_PAT : &str = r"[[:alpha:]]+[[:word:]]*";
@@ -83,7 +86,7 @@ pub const LOGIC_RE_PAT : &str = r"[!^%|&><]|(<=|>=)";
 pub const PAREN_RE_PAT : &str = r"[()]";
 pub const GROUP_RE_PAT : &str = r"$?[{}\[\]]";
 pub const SEPER_RE_PAT : &str = r"[:,]";
-pub const KEYWD_RE_PAT : &str = r"\b(global|local|unique|parent|func|print|dumpscope|rm|garbage|log|return|dumptoks|dumplc|dumpflags|in|for|HALT|break|continue|while|if|else|linkup|module|readonly|private|class|property|method|inheriting|from)\b";
+pub const KEYWD_RE_PAT : &str = r"\b(global|local|unique|parent|func|print|dumpscope|rm|garbage|log|return|dumptoks|dumplc|dumpflags|in|for|HALT|break|continue|while|if|else|linkup|module|readonly|private|class|property|method|inheriting|from|dumpobj)\b";
 pub const ASIGN_RE_PAT : &str = r"=";
 pub const MATHM_RE_PAT : &str = r"[-+*/]";
 pub const TOKEN_STR_RE_PAT : &str = r#"".*""#;
@@ -245,6 +248,12 @@ impl Token {
 			return self.list.as_ref().unwrap().len() > 0;
 		}
 		return false;
+	}
+	pub fn matchupb (&self, id : u8, value : String) -> bool {
+		return self.id == id && self.value == value;
+	}
+	pub fn matchup (&self, id : u8, value : &str) -> bool {
+		return self.id == id && self.value == value;
 	}
 }
 

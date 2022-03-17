@@ -1,26 +1,24 @@
 linkup other_file;
 module my_code;
-object_var from my_code;
+// object_var from my_code;
 
-my_code.xyz($abc);
-my_code.xyz($my_code.object_var);
+// dumptoks;
 
-print "my_code.object_var:", my_code.object_var;
-
-print "Z", z;
-
-v = 2;
-
-while v > 0 {
-    v -= 1;
-    print $v;
-}
-
-class MyClass inheriting System {
-    method init (self) {
+class MyClass inheriting System, Dummy {
+    method __init__ (self) {
         print "boot";
     }
 }
+
+print "class is bootable:", MyClass.bootable;
+
+// dumptoks;
+
+// dumpscope 2;
+
+MyClass.__init__();
+
+print MyClass.lime + "MyClass LIME" + MyClass.default;
 
 #[terminating_newlines=1]
 #[print_sep_spaces=1]
@@ -32,3 +30,5 @@ class MyClass inheriting System {
 // log "MAIN PROGRAM DUMP";
 
 // dumpscope 2;
+
+info();

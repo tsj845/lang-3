@@ -433,6 +433,97 @@ fn process_elseblock (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>,
 	return (i-1, tokens, f);
 }
 
+fn process_class (mut i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token) {
+	i += 1;
+	// pop class keyword
+	// tokens.remove(i);
+	// generate object token
+	let mut f = Token::new(OBJ, tokens.remove(i).value, DICT_TOKEN);
+	let mut inheritance = Token::news(LST, "\"class inheritance", LIST_TOKEN);
+	// checks if the class is inheriting from anything
+	if tokens[i].matchup(KEY, "inheriting") {
+		tokens.remove(i);
+		loop {
+			if i >= tokens.len() {
+				panic!("class declaration fault");
+			}
+			if tokens[i].matchup(GRP, "{") {
+				break;
+			}
+			if tokens[i].id == SEP {
+				tokens.remove(i);
+			}
+			inheritance.push(tokens.remove(i));
+		}
+	}
+	// set inheritance property
+	f.setd(String::from("\"class inheritance"), inheritance);
+	let mut depth : usize = 0;
+	// all tokens within class body
+	let mut lst : Vec<Token> = Vec::new();
+	loop {
+		if i >= tokens.len() {
+			break;
+		}
+		if tokens[i].id == GRP {
+			if tokens[i].value == "{" {
+				depth += 1;
+				if depth == 1 {
+					tokens.remove(i);
+					continue;
+				}
+			} else if tokens[i].value == "}" {
+				depth -= 1;
+				if depth == 0 {
+					break;
+				}
+			}
+		}
+		lst.push(tokens.remove(i));
+	}
+	let mut ind : usize = 0;
+	let mut l = lst.len();
+	loop {
+		if ind >= l {
+			break;
+		}
+		if lst[ind].matchup(KEY, "method") {
+			let x : (usize, Vec<Token>, Token) = process_fun(ind, lst);
+			ind = x.0;
+			lst = x.1;
+			l = lst.len();
+			lst.insert(ind, x.2);
+		}
+		if lst[ind].matchup(KEY, "property") {
+			loop {
+				if ind >= lst.len() {
+					panic!("class body property fault");
+				}
+				if lst[ind].id == NLN {
+					break;
+				}
+				lst.remove(ind);
+			}
+			l = lst.len();
+		}
+		ind += 1;
+	}
+	ind = 0;
+	l = lst.len();
+	loop {
+		if ind >= l {
+			break;
+		}
+		if lst[ind].id == FUN {
+			f.setd(lst[ind].value.clone(), lst.remove(ind));
+			l = lst.len();
+			continue;
+		}
+		ind += 1;
+	}
+	return (i, tokens, f);
+}
+
 pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
 	// println!("{}PREPROCESS\x1b[0m", INTERPRETER_DEBUG_BRIGHTPINK);
 	// printlst::<Token>(&tokens);
@@ -509,6 +600,16 @@ pub fn preprocess (mut tokens : Vec<Token>) -> Vec<Token> {
 				tokens = x.1;
 				l = tokens.len();
 				fv.push(x.2);
+				continue;
+			}
+			if tokens[i].value == "class" {
+				fv.push(tokens[i].clone());
+				let x : (usize, Vec<Token>, Token) = process_class(i, tokens);
+				i = x.0;
+				tokens = x.1;
+				l = tokens.len();
+				fv.push(x.2);
+				continue;
 			}
 			fv.push(tokens[i].clone());
 		} else {
@@ -592,7 +693,7 @@ pub fn tokenize (lines : Vec<&str>) -> Vec<Token> {
 				i = x.0 - 1;
 				meta_data.push([line_index, i]);
 				words.push(x.1);
-			} else if line[i].is_alphabetic() {
+			} else if line[i].is_alphabetic() || line[i] == '_' {
 				let x : (usize, String) = get_word(i, lines[line_index].to_string());
 				i = x.0;
 				meta_data.push([line_index, i]);

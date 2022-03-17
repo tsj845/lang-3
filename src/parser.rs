@@ -682,6 +682,31 @@ impl Parser {
 		self.memory.rem_scope();
 		return i;
 	}
+	fn helper_obj_inheritance (&self, mut obj : Token) -> Token {
+		// let mut v = Vec::new();
+		// v.extend(obj.dict.as_ref().unwrap().keys().into_iter());
+		// printlst(&v);
+		let inherits : Vec<Token> = obj.popd(String::from("\"class inheritance")).list.unwrap();
+		// let mut c : usize = 0;
+		for item in inherits {
+			let dr : Token = self.derefb(&item);
+			if dr.id == UDF {
+				continue;
+			}
+			// println!("{}", c);
+			// c += 1;
+			for (key, val) in dr.dict.as_ref().unwrap() {
+				if obj.dict.as_ref().unwrap().contains_key(key) {
+					continue;
+				}
+				obj.setd(key.clone(), val.clone());
+			}
+		}
+		// let mut v = Vec::new();
+		// v.extend(obj.dict.as_ref().unwrap().keys().into_iter());
+		// printlst(&v);
+		return obj;
+	}
 	fn eval (&mut self, mut tokens : Vec<Token>) -> Token {
 		let mut token_index : usize = 0;
 		let mut tokens_length = tokens.len();
@@ -782,6 +807,20 @@ impl Parser {
 				} else if token.value == "private" {
 					self.memory.inter_flag_set(&tokens[token_index+1].value, 1u8);
 					token_index += 1;
+				} else if token.value == "class" {
+					if tokens[token_index+1].id == OBJ {
+						let val = &tokens[token_index+1].value.clone();
+						self.memory.set(val, self.helper_obj_inheritance(tokens.remove(token_index+1)));
+					}
+				} else if token.value == "dumpobj" {
+					println!("\n");
+					let d = self.derefb(&tokens[token_index+1]);
+					println!("{}DUMPING OBJECT PROPERTIES:\x1b[0m {}", INTERPRETER_DEBUG_BRIGHTPINK, d.value);
+					println!("");
+					for (k, j) in d.dict.as_ref().unwrap() {
+						println!("{} : {}", k, j);
+					}
+					println!("\n");
 				}
 			// handle variable assignment
 			} else if token.id == ASS {
@@ -864,7 +903,9 @@ impl Parser {
 				tokens_length = tokens.len();
 			// handle object properties and methods
 			} else if token.id == DOT && token_index < tokens_length-1 && tokens[token_index+1].id == REF {
+				// println!("UNCHECKED BINDING: {}", tokens[token_index-1]);
 				if self.BINDINGS.check_valid(&self.modules, &self.derefb(&tokens[token_index-1]), &tokens[token_index+1].value) {
+					// println!("CONFIRMED BINDING");
 					let oi : usize = token_index-1;
 					let x : (usize, Token, Vec<Token>) = self.execute(tokens.clone(), token_index);
 					tokens = x.2;
@@ -880,8 +921,8 @@ impl Parser {
 						tokens.remove(oi);
 						token_index -= 1;
 					}
-					tokens_length = tokens.len();
 				}
+				tokens_length = tokens.len();
 			} else if token.id == CTL {
 				if token.value == "forloop" {
 					token_index = self.eval_for_loop(token_index, &mut tokens);
@@ -938,6 +979,7 @@ impl Parser {
 		lazy_static! {
 			static ref NUMBER_RE : Regex = Regex::new(NUMBER_RE_PAT).unwrap();
 		}
+		println!("EXEC BUILTINS");
 		if name == "input" {
 			println!("{}", &args[0].value[1..args[0].value.len()-1]);
 			let mut input = String::new();
@@ -973,6 +1015,8 @@ impl Parser {
 				return args[0].clone();
 			}
 			return Token::new(LIT, String::from("\"")+&args[0].value+"\"", BASE_TOKEN);
+		} else if name == "info" {
+			println!("VERNO: {}", VERSION);
 		}
 		return self.__fault();
 	}
@@ -1039,6 +1083,7 @@ impl Parser {
 		let is_ref : bool = tokens[i-1].id == REF;
 		let ov : &str = &tokens[i-1].value.clone();
         let mut t : Token = match is_ref {false=>tokens[i-1].clone(),true=>self.memory.get(&tokens[i-1].value)};
+		// println!("EXEC DATA: {}, {}, {}", is_ref, t, target);
         if t.data_type == DT_STR {
             let btype : &&str = self.BINDINGS.get_type(DT_STR, target);
             if btype == &"method" {
@@ -1113,6 +1158,7 @@ impl Parser {
 			// todo
 		}
 		if t.data_type == DT_OBJ {
+			// println!("OBJECT");
 			let r : Token = t.getd(target.to_string()).clone();
 			if r.id == FUN {
 				// todo
@@ -1182,15 +1228,20 @@ impl Parser {
 	}
 	pub fn __init (&mut self) -> () {
 		let mut systok : Token = Token::news(OBJ, "SYS", DICT_TOKEN);
-		systok.setd(String::from("lime"), Token::news(LIT, r#""\x1b[38;2;0;255;0m""#, BASE_TOKEN));
-		systok.setd(String::from("red"), Token::news(LIT, r#""\x1b[38;2;255;0;0m""#, BASE_TOKEN));
-		systok.setd(String::from("blue"), Token::news(LIT, r#""\x1b[38;2;0;0;255m""#, BASE_TOKEN));
-		systok.setd(String::from("cyan"), Token::news(LIT, r#""\x1b[38;2;0;255;255m""#, BASE_TOKEN));
-		systok.setd(String::from("yellow"), Token::news(LIT, r#""\x1b[38;2;255;255;0m""#, BASE_TOKEN));
-		systok.setd(String::from("violet"), Token::news(LIT, r#""\x1b[38;2;255;0;255m""#, BASE_TOKEN));
-		systok.setd(String::from("default"), Token::news(LIT, r#""\x1b[39m""#, BASE_TOKEN));
+		systok.setd(String::from("lime"), Token::newsb(LIT, r#""\x1b[38;2;0;255;0m""#));
+		systok.setd(String::from("red"), Token::newsb(LIT, r#""\x1b[38;2;255;0;0m""#));
+		systok.setd(String::from("blue"), Token::newsb(LIT, r#""\x1b[38;2;0;0;255m""#));
+		systok.setd(String::from("cyan"), Token::newsb(LIT, r#""\x1b[38;2;0;255;255m""#));
+		systok.setd(String::from("yellow"), Token::newsb(LIT, r#""\x1b[38;2;255;255;0m""#));
+		systok.setd(String::from("violet"), Token::newsb(LIT, r#""\x1b[38;2;255;0;255m""#));
+		systok.setd(String::from("default"), Token::newsb(LIT, r#""\x1b[39m""#));
 		self.memory.set("System", systok);
 		self.memory.set_protection("System", 1u8);
+		let mut dummytok : Token = Token::news(OBJ, "DUMMY", DICT_TOKEN);
+		dummytok.setd(String::from("lime"), Token::newsb(LIT, "LIME"));
+		dummytok.setd(String::from("bootable"), Token::newsb(LIT, "true"));
+		self.memory.set("Dummy", dummytok);
+		self.memory.set_protection("Dummy", 1u8);
 		self.__prelude();
 		// let mut bi_input = Token::news(FUN, "input", LIST_TOKEN);
 		// bi_input.extend(vec![Token::newsb(REF, "prompt"), Token::newsb(SEP, "*"), Token::newsb(KEY, "return"), Token::newsb(BND, "input"), Token::newsb(PAR, "("), Token::newsb(REF, "$prompt"), Token::newsb(PAR, ")")]);

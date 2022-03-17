@@ -2,7 +2,8 @@ implementations {
     - readonly
     - from <- (requires data paths and pointers)
     - class
-    - method
+    - method <- (requires class)
+    - property <- (requires class)
     - inheriting
 }
 

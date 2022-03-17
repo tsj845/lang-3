@@ -10,3 +10,6 @@ REF value SEP * KEY return BND String PAR ( REF $value PAR )
 '''
 sum
 REF list SEP * KEY return BND sum PAR ( REF $list PAR )
+'''
+info
+SEP * KEY return BND info PAR ( PAR )
