@@ -16,6 +16,7 @@ use std::collections::HashMap;
  */
 
 pub struct VarScopes {
+	pub pointer_mem : HashMap<String, Token>,
 	scopes : Vec<HashMap<String, Token>>,
 	scope_count : usize,
 	var_flags : Vec<HashMap<String, u8>>,
@@ -26,6 +27,7 @@ pub struct VarScopes {
 impl VarScopes {
 	pub fn new () -> VarScopes {
 		VarScopes {
+			pointer_mem : HashMap::new(),
 			scopes : vec![HashMap::new()],
 			scope_count : 1,
 			var_flags : vec![HashMap::new()],
@@ -114,6 +116,9 @@ impl VarScopes {
 		let scope = &mut self.scopes[id];
 		scope.insert(name.to_string(), value);
 	}
+	pub fn ptr_alloc (&mut self, ptr_name : &str) {
+		self.scopes[self.scope_count-1].insert(String::from("\"ptr ")+ptr_name, Token::newsb(UDF, "UDF"));
+	}
 	pub fn new_scope (&mut self) {
 		self.scope_count += 1;
 		self.scopes.push(HashMap::new());
@@ -121,13 +126,18 @@ impl VarScopes {
 	}
 	pub fn rem_scope (&mut self) {
 		self.scope_count -= 1;
+		for (key, _) in &self.scopes[self.scope_count] {
+			if key.starts_with("\"ptr ") {
+				self.pointer_mem.remove(&key[5..]);
+			}
+		}
 		self.scopes.pop();
 		self.var_flags.pop();
 	}
 	fn get_r (&self, name : &str) -> Token {
 		let mut i : usize = self.scope_count-1;
 		loop {
-			if self.scopes[i].contains_key(name.clone()) {
+			if self.scopes[i].contains_key(name.clone()) && !self.find_flag_for_scope(name.to_owned(), i) == 4 {
 				return self.scopes[i].get(&name.to_string()).unwrap().clone();
 			}
 			if i == 0 {
@@ -143,14 +153,11 @@ impl VarScopes {
 			if i >= self.scope_count {
 				break;
 			}
-			if self.scopes[i].contains_key(name.clone()) {
+			if self.scopes[i].contains_key(name.clone()) && !self.find_flag_for_scope(name.to_owned(), i) == 4 {
 				return self.scopes[i].get(&name.to_string()).unwrap().clone();
 			}
 			i += 1;
 		}
-		return Token::news(UDF, "UDF", BASE_TOKEN);
-	}
-	fn get_u (&self, name : &str) -> Token {
 		return Token::news(UDF, "UDF", BASE_TOKEN);
 	}
 	fn get_p (&self, name : &str) -> Token {
@@ -161,9 +168,6 @@ impl VarScopes {
 			return self.get_f(name);
 		}
 		let flag = self.find_flag(name.to_string());
-		if flag == 4 {
-			return self.get_u(name);
-		}
 		if flag == 5 {
 			return self.get_p(name);
 		}
@@ -175,7 +179,7 @@ impl VarScopes {
 	fn set_r (&mut self, name : &str, value : Token) {
 		let mut i : usize = self.scope_count-1;
 		loop {
-			if self.scopes[i].contains_key(name.clone()) {
+			if self.scopes[i].contains_key(name.clone()) && !self.find_flag_for_scope(name.to_owned(), i) == 4 {
 				self.scopes[i].insert(name.to_string(), value);
 				return;
 			}
@@ -192,16 +196,13 @@ impl VarScopes {
 			if i >= self.scope_count {
 				break;
 			}
-			if self.scopes[i].contains_key(name.clone()) {
+			if self.scopes[i].contains_key(name.clone()) && !self.find_flag_for_scope(name.to_owned(), i) == 4 {
 				self.scopes[i].insert(name.to_string(), value);
 				return;
 			}
 			i += 1;
 		}
 		self.scopes[0].insert(name.to_string(), value);
-	}
-	fn set_u (&mut self, name : &str, value : Token) {
-		self.scopes[self.scope_count-1].insert(name.to_string(), value);
 	}
 	fn set_p (&mut self, name : &str, value : Token) {
 		self.scopes[self.scope_count-2].insert(name.to_string(), value);
@@ -215,8 +216,6 @@ impl VarScopes {
 			self.set_r(name, value);
 		} else if flag < 4 {
 			self.set_f(name, value);
-		} else if flag == 4 {
-			self.set_u(name, value);
 		} else if flag == 5 {
 			self.set_p(name, value);
 		}
