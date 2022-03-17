@@ -16,7 +16,9 @@ print "class is bootable:", MyClass.bootable;
 
 // dumpscope 2;
 
-MyClass.__init__();
+inst = create MyClass();
+
+print inst.lime + "INSTANCE" + inst.default;
 
 print MyClass.lime + "MyClass LIME" + MyClass.default;
 

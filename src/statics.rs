@@ -74,7 +74,7 @@ pub const TOKEN_ARRAY : [&str; 26] = ["NUL", "FUN", "REF", "LIT", "IDX", "KEY", 
 pub const FILE_EXT : &str = ".ihl";
 
 // program keywords
-pub const KEYWORDS : [&str; 32] = ["gloabl", "local", "unique", "parent", "func", "print", "dumpscope", "rm", "garbage", "log", "return", "dumptoks", "dumplc", "dumpflags", "in", "for", "HALT", "break", "continue", "while", "if", "else", "linkup", "module", "readonly", "private", "class", "property", "method", "inheriting", "from", "dumpobj"];
+pub const KEYWORDS : [&str; 33] = ["gloabl", "local", "unique", "parent", "func", "print", "dumpscope", "rm", "garbage", "log", "return", "dumptoks", "dumplc", "dumpflags", "in", "for", "HALT", "break", "continue", "while", "if", "else", "linkup", "module", "readonly", "private", "class", "property", "method", "inheriting", "from", "dumpobj", "create"];
 
 // tokenization regex patterns
 pub const WORD_RE_PAT : &str = r"[[:alpha:]]+[[:word:]]*";
@@ -86,7 +86,7 @@ pub const LOGIC_RE_PAT : &str = r"[!^%|&><]|(<=|>=)";
 pub const PAREN_RE_PAT : &str = r"[()]";
 pub const GROUP_RE_PAT : &str = r"$?[{}\[\]]";
 pub const SEPER_RE_PAT : &str = r"[:,]";
-pub const KEYWD_RE_PAT : &str = r"\b(global|local|unique|parent|func|print|dumpscope|rm|garbage|log|return|dumptoks|dumplc|dumpflags|in|for|HALT|break|continue|while|if|else|linkup|module|readonly|private|class|property|method|inheriting|from|dumpobj)\b";
+pub const KEYWD_RE_PAT : &str = r"\b(global|local|unique|parent|func|print|dumpscope|rm|garbage|log|return|dumptoks|dumplc|dumpflags|in|for|HALT|break|continue|while|if|else|linkup|module|readonly|private|class|property|method|inheriting|from|dumpobj|create)\b";
 pub const ASIGN_RE_PAT : &str = r"=";
 pub const MATHM_RE_PAT : &str = r"[-+*/]";
 pub const TOKEN_STR_RE_PAT : &str = r#"".*""#;
@@ -259,6 +259,12 @@ impl Token {
 
 // dict methods
 impl Token {
+	pub fn hasd (&self, key : &str) -> bool {
+		if self.tt != DICT_TOKEN {
+			panic!("invalid operation");
+		}
+		return self.dict.as_ref().unwrap().contains_key(key);
+	}
 	pub fn _check_vkey_dict (&self, key : &str) {
 		if self.tt != DICT_TOKEN {
 			panic!("invalid operation");

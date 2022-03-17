@@ -472,6 +472,7 @@ impl Parser {
 			return self.__fault();
 		}
 		self.dbdepth += 1;
+		// printlst(&toks);
 		let mut i : usize = 0;
 		loop {
 			if i >= toks.len() {
@@ -484,8 +485,8 @@ impl Parser {
 			}
 			i += 1;
 		}
-		let mut copt : Token = toks[0].clone();
-		i = 1;
+		let mut copt : Token = self.__fault();
+		i = 0;
 		let mut l = toks.len();
 		loop {
 			if i >= l {
@@ -551,6 +552,18 @@ impl Parser {
 				i = self.binding_execution(i, &mut toks);
 				copt = toks[i].clone();
 				l = toks.len();
+			} else if toks[i].id == KEY {
+				if toks[i].value == "create" {
+					let tok = self.derefb(&toks[i+1]);
+					if tok.id == OBJ {
+						if tok.hasd("__init__") {
+							i = self.method_call(i, &mut toks, tok, "__init__");
+							i -= 1;
+							copt = toks[i].clone();
+							l = toks.len();
+						}
+					}
+				}
 			}
 			i += 1;
 		}
@@ -683,18 +696,12 @@ impl Parser {
 		return i;
 	}
 	fn helper_obj_inheritance (&self, mut obj : Token) -> Token {
-		// let mut v = Vec::new();
-		// v.extend(obj.dict.as_ref().unwrap().keys().into_iter());
-		// printlst(&v);
 		let inherits : Vec<Token> = obj.popd(String::from("\"class inheritance")).list.unwrap();
-		// let mut c : usize = 0;
 		for item in inherits {
 			let dr : Token = self.derefb(&item);
 			if dr.id == UDF {
 				continue;
 			}
-			// println!("{}", c);
-			// c += 1;
 			for (key, val) in dr.dict.as_ref().unwrap() {
 				if obj.dict.as_ref().unwrap().contains_key(key) {
 					continue;
@@ -702,10 +709,16 @@ impl Parser {
 				obj.setd(key.clone(), val.clone());
 			}
 		}
-		// let mut v = Vec::new();
-		// v.extend(obj.dict.as_ref().unwrap().keys().into_iter());
-		// printlst(&v);
 		return obj;
+	}
+	fn method_call (&mut self, mut i : usize, mut tokens : &mut Vec<Token>, tok : Token, method_name : &str) -> usize {
+		// tokens.remove(i);
+		tokens[i] = tok.getd(method_name.to_owned());
+		println!("{}", tokens[i]);
+		i += 1;
+		tokens.insert(i+1, Token::newsb(SEP, ","));
+		tokens.insert(i+1, tok);
+		return self.func_call(i, &mut tokens);
 	}
 	fn eval (&mut self, mut tokens : Vec<Token>) -> Token {
 		let mut token_index : usize = 0;
@@ -742,11 +755,6 @@ impl Parser {
 					token_index = self.printop(token_index, &tokens);
 					print!("\x1b[39m");
 				} else if token.value == "return" {
-					// let mut r : Token = tokens[token_index+1].clone();
-					// if self.derefb(&r).id == FUN && tokens[token_index+2].id == PAR && tokens[token_index+2].value == "(" {
-						// self.func_call(token_index+2, &mut tokens);
-						// r = tokens[token_index+1].clone();
-					// }
 					let mut lst : Vec<Token> = Vec::new();
 					loop {
 						if token_index >= tokens_length {
@@ -810,7 +818,9 @@ impl Parser {
 				} else if token.value == "class" {
 					if tokens[token_index+1].id == OBJ {
 						let val = &tokens[token_index+1].value.clone();
+						self.memory.flag_var(val.clone(), 3u8);
 						self.memory.set(val, self.helper_obj_inheritance(tokens.remove(token_index+1)));
+						self.memory.set_protection(val, 1u8);
 					}
 				} else if token.value == "dumpobj" {
 					println!("\n");
@@ -821,6 +831,14 @@ impl Parser {
 						println!("{} : {}", k, j);
 					}
 					println!("\n");
+				} else if token.value == "create" {
+					let tok = self.derefb(&tokens[token_index+1]);
+					if tok.id == OBJ {
+						if tok.hasd("__init__") {
+							token_index = self.method_call(token_index, &mut tokens, tok, "__init__");
+							tokens_length = tokens.len();
+						}
+					}
 				}
 			// handle variable assignment
 			} else if token.id == ASS {
@@ -979,7 +997,6 @@ impl Parser {
 		lazy_static! {
 			static ref NUMBER_RE : Regex = Regex::new(NUMBER_RE_PAT).unwrap();
 		}
-		println!("EXEC BUILTINS");
 		if name == "input" {
 			println!("{}", &args[0].value[1..args[0].value.len()-1]);
 			let mut input = String::new();
@@ -1243,22 +1260,6 @@ impl Parser {
 		self.memory.set("Dummy", dummytok);
 		self.memory.set_protection("Dummy", 1u8);
 		self.__prelude();
-		// let mut bi_input = Token::news(FUN, "input", LIST_TOKEN);
-		// bi_input.extend(vec![Token::newsb(REF, "prompt"), Token::newsb(SEP, "*"), Token::newsb(KEY, "return"), Token::newsb(BND, "input"), Token::newsb(PAR, "("), Token::newsb(REF, "$prompt"), Token::newsb(PAR, ")")]);
-		// self.memory.set("input", bi_input);
-		// self.memory.set_protection("input", 1u8);
-		// let mut bi_sum = Token::news(FUN, "sum", LIST_TOKEN);
-		// bi_sum.extend(vec![Token::newsb(REF, "list"), Token::newsb(SEP, "*"), Token::newsb(KEY, "return"), Token::newsb(BND, "sum"), Token::newsb(PAR, "("), Token::newsb(REF, "$list"), Token::newsb(PAR, ")")]);
-		// self.memory.set("sum", bi_sum);
-		// self.memory.set_protection("sum", 1u8);
-		// let mut bi_number = Token::news(FUN, "Number", LIST_TOKEN);
-		// bi_number.extend(vec![Token::newsb(REF, "value"), Token::newsb(SEP, "*"), Token::newsb(KEY, "return"), Token::newsb(BND, "Number"), Token::newsb(PAR, "("), Token::newsb(REF, "$value"), Token::newsb(PAR, ")")]);
-		// self.memory.set("Number", bi_number);
-		// self.memory.set_protection("Number", 1u8);
-		// let mut bi_string = Token::news(FUN, "String", LIST_TOKEN);
-		// bi_string.extend(vec![Token::newsb(REF, "value"), Token::newsb(SEP, "*"), Token::newsb(KEY, "return"), Token::newsb(BND, "String"), Token::newsb(PAR, "("), Token::newsb(REF, "$value"), Token::newsb(PAR, ")")]);
-		// self.memory.set("String", bi_string);
-		// self.memory.set_protection("String", 1u8);
 	}
 	pub fn run (&mut self) -> u8 {
 		self.memory.new_scope();
