@@ -5,7 +5,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 // data for interpreter info()
-pub const VERSION : &str = "β1.0.class";
+pub const VERSION : &str = "β1.1.class";
 
 // a print operation that can accept any number of arguments then prints them
 #[macro_export]
@@ -110,6 +110,7 @@ pub const DT_MOD : u8 = 7;
 
 pub struct Token {
 	pub id : u8,
+	pub cid : u8,
 	pub value : String,
 	pub dict : Option<HashMap<String, Token>>,
 	pub list : Option<Vec<Token>>,
@@ -122,7 +123,7 @@ pub struct Token {
 }
 
 impl Token {
-	pub fn new (id : u8, mut value : String, tt : u8) -> Token {
+	fn calc_dt (id : u8, mut value : String) -> (u8, String) {
 		lazy_static! {
 			static ref STRING_RE : Regex = Regex::new(TOKEN_STR_RE_PAT).unwrap();
 			static ref NUMBER_RE : Regex = Regex::new(NUMBER_RE_PAT).unwrap();
@@ -132,13 +133,10 @@ impl Token {
 			static ref LIT_RE : Regex = Regex::new(LITERAL_RE_PAT).unwrap();
 			static ref REPLACER : Replacer = Replacer::new();
 		}
-		let mut data_type : u8 = DT_UDF;
 		if id == LIT {
 			if STRING_RE.is_match(&value) {
-				data_type = DT_STR;
-				value = REPLACER.replace(r"\x1b", REPLACER.BACKSLASH.clone(), REPLACER.replace(r"\t", REPLACER.BACKSLASH.clone(), REPLACER.replace(r"\n", REPLACER.BACKSLASH.clone(), value, "\n"), "\t"), "\x1b").replace(r"\\", r"\");
+				return (DT_STR, REPLACER.replace(r"\x1b", REPLACER.BACKSLASH.clone(), REPLACER.replace(r"\t", REPLACER.BACKSLASH.clone(), REPLACER.replace(r"\n", REPLACER.BACKSLASH.clone(), value, "\n"), "\t"), "\x1b").replace(r"\\", r"\"));
 			} else if NUMBER_RE.is_match(&value) {
-				data_type = DT_NUM;
 				if !DEC_NUM_RE.is_match(&value) {
 					let mut n : i32 = 0;
 					let mut place : u32 = 1;
@@ -163,22 +161,30 @@ impl Token {
 					}
 					value = n.to_string();
 				}
+				return (DT_NUM, value);
 			} else if LIT_RE.is_match(&value) {
-				data_type = DT_BOL;
+				return (DT_BOL, value);
 			}
 		} else if id == LST {
-			data_type = DT_LST;
+			return (DT_LST, value);
 		} else if id == DCT {
-			data_type = DT_DCT;
+			return (DT_DCT, value);
 		} else if id == OBJ {
-			data_type = DT_OBJ;
+			return (DT_OBJ, value);
 		} else if id == MOD {
-			data_type = DT_MOD;
+			return (DT_MOD, value);
 		}
+		return (DT_UDF, value);
+	}
+	pub fn new (id : u8, mut value : String, tt : u8) -> Token {
+		let x : (u8, String) = Token::calc_dt(id, value);
+		let data_type = x.0;
+		value = x.1;
 		// println!("{}", TOKEN_ARRAY[id as usize]);
 		if tt == BASE_TOKEN {
 			return Token {
 				id : id,
+				cid : id,
 				value : value,
 				dict : None,
 				list : None,
@@ -192,6 +198,7 @@ impl Token {
 		} else if tt == DICT_TOKEN {
 			return Token {
 				id : id,
+				cid : id,
 				value : value,
 				dict : Some(HashMap::new()),
 				list : None,
@@ -205,6 +212,7 @@ impl Token {
 		} else if tt == LIST_TOKEN {
 			return Token {
 				id : id,
+				cid : id,
 				value : value,
 				dict : None,
 				list : Some(Vec::new()),
@@ -217,6 +225,22 @@ impl Token {
 			};
 		}
 		panic!("invalid optimization type");
+	}
+	pub fn new_ptr (cid : u8, value : String, rv : String) -> Token {
+		let x : (u8, String) = Token::calc_dt(cid, rv);
+		Token {
+			id : PTR,
+			cid : cid,
+			value : value,
+			dict : None,
+			list : None,
+			length : 0,
+			data_type : x.0,
+			escape : false,
+			line : 0,
+			chara : 0,
+			tt : BASE_TOKEN,
+		}
 	}
 	pub fn news (id : u8, value : &str, tt : u8) -> Token {
 		return Token::new(id, value.to_string(), tt);
@@ -358,6 +382,7 @@ impl std::clone::Clone for Token {
 	fn clone (&self) -> Token {
 		Token {
 			id : self.id,
+			cid : self.cid,
 			value : self.value.to_string(),
 			dict : self.dict.clone(),
 			list : self.list.clone(),

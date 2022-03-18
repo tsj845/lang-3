@@ -483,6 +483,7 @@ fn process_class (mut i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>,
 	}
 	let mut ind : usize = 0;
 	let mut l = lst.len();
+	let mut props : Token = Token::news(LST, "props", LIST_TOKEN);
 	loop {
 		if ind >= l {
 			break;
@@ -495,6 +496,10 @@ fn process_class (mut i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>,
 			lst.insert(ind, x.2);
 		}
 		if lst[ind].matchup(KEY, "property") {
+			lst.remove(ind);
+			let mut ls : Token = Token::news(LST, &lst[ind].value, LIST_TOKEN);
+			lst.remove(ind);
+			lst.remove(ind);
 			loop {
 				if ind >= lst.len() {
 					panic!("class body property fault");
@@ -502,14 +507,16 @@ fn process_class (mut i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>,
 				if lst[ind].id == NLN {
 					break;
 				}
-				lst.remove(ind);
+				ls.push(lst.remove(ind));
 			}
+			props.push(ls);
 			l = lst.len();
 		}
 		ind += 1;
 	}
 	ind = 0;
 	l = lst.len();
+	f.setd(String::from("\"props"), props);
 	loop {
 		if ind >= l {
 			break;

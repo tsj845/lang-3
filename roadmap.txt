@@ -8,7 +8,7 @@ implementations {
 }
 
 plans {
-    - change complex vars to pointers that store a location of actual data that can be used in place
+    - change complex vars to pointers that store a location of actual data that can be used in place -- in-progress
     - data paths for multi-module pointer support <- (requires pointers)
     - add proper error support
 }

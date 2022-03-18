@@ -1,22 +1,33 @@
-linkup other_file;
-module my_code;
+#[dump_log=false]
+// linkup other_file;
+// module my_code;
 // object_var from my_code;
 
 // dumptoks;
 
-class MyClass inheriting System, Dummy {
+c = 0;
+
+class MyClass inheriting System {
+    property bootable = true;
     method __init__ (self) {
+        global c;
+        print "iter", $c;
+        // dumpscope 2;
+        c += 1;
+        print "self", $self;
         print "boot";
     }
 }
 
-print "class is bootable:", MyClass.bootable;
+print "class bootable property:", MyClass.bootable;
 
 // dumptoks;
 
 // dumpscope 2;
 
 inst = create MyClass();
+
+print inst;
 
 print inst.lime + "INSTANCE" + inst.default;
 

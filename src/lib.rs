@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 extern crate lazy_static;
 extern crate regex;
+extern crate rand;
 pub mod static_colors;
 pub mod statics;
 pub mod scopes;

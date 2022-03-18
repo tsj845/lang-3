@@ -1,6 +1,7 @@
 use crate::statics::{Token, UDF, BASE_TOKEN};
 use crate::static_colors::*;
 use std::collections::HashMap;
+use rand::random;
 
 /**
  * variable flags
@@ -81,7 +82,7 @@ impl VarScopes {
 		}
 		return 0u8;
 	}
-	fn find_flag (&self, varname : String) -> u8 {
+	pub fn find_flag (&self, varname : String) -> u8 {
 		let mut i : usize = self.scope_count-1;
 		loop {
 			if self.var_flags[i].contains_key(&varname) {
@@ -116,8 +117,22 @@ impl VarScopes {
 		let scope = &mut self.scopes[id];
 		scope.insert(name.to_string(), value);
 	}
+	// ensures that all pointers are unique
+	pub fn get_ptr_name (&self, name : &str) -> String {
+		let mut cand = String::from("-scope-") + &(self.scope_count-1).to_string() + name + &random::<u32>().to_string();
+		loop {
+			if !self.pointer_mem.contains_key(&cand) {
+				break;
+			}
+			cand = String::from("-scope-") + &(self.scope_count-1).to_string() + name + &random::<u32>().to_string();
+		}
+		return cand;
+	}
 	pub fn ptr_alloc (&mut self, ptr_name : &str) {
 		self.scopes[self.scope_count-1].insert(String::from("\"ptr ")+ptr_name, Token::newsb(UDF, "UDF"));
+	}
+	pub fn ptr_alloc_global (&mut self, ptr_name : &str) {
+		self.scopes[0].insert(String::from("\"ptr ")+ptr_name, Token::newsb(UDF, "UDF"));
 	}
 	pub fn new_scope (&mut self) {
 		self.scope_count += 1;
@@ -137,7 +152,8 @@ impl VarScopes {
 	fn get_r (&self, name : &str) -> Token {
 		let mut i : usize = self.scope_count-1;
 		loop {
-			if self.scopes[i].contains_key(name.clone()) && !self.find_flag_for_scope(name.to_owned(), i) == 4 {
+			// println!("GRD: {}, {}, {}", name, self.scopes[i].contains_key(name), self.find_flag_for_scope(name.to_owned(), i));
+			if self.scopes[i].contains_key(name) && self.find_flag_for_scope(name.to_owned(), i) != 4 {
 				return self.scopes[i].get(&name.to_string()).unwrap().clone();
 			}
 			if i == 0 {
@@ -153,7 +169,7 @@ impl VarScopes {
 			if i >= self.scope_count {
 				break;
 			}
-			if self.scopes[i].contains_key(name.clone()) && !self.find_flag_for_scope(name.to_owned(), i) == 4 {
+			if self.scopes[i].contains_key(name.clone()) && self.find_flag_for_scope(name.to_owned(), i) != 4 {
 				return self.scopes[i].get(&name.to_string()).unwrap().clone();
 			}
 			i += 1;
@@ -165,7 +181,7 @@ impl VarScopes {
 	}
 	pub fn get (&self, name : &str) -> Token {
 		if self.find_gv(name.to_string()) == 1 {
-			return self.get_f(name);
+			return self.scopes[0].get(name).unwrap().clone();
 		}
 		let flag = self.find_flag(name.to_string());
 		if flag == 5 {
@@ -179,7 +195,7 @@ impl VarScopes {
 	fn set_r (&mut self, name : &str, value : Token) {
 		let mut i : usize = self.scope_count-1;
 		loop {
-			if self.scopes[i].contains_key(name.clone()) && !self.find_flag_for_scope(name.to_owned(), i) == 4 {
+			if self.scopes[i].contains_key(name.clone()) && self.find_flag_for_scope(name.to_owned(), i) != 4 {
 				self.scopes[i].insert(name.to_string(), value);
 				return;
 			}
@@ -196,7 +212,7 @@ impl VarScopes {
 			if i >= self.scope_count {
 				break;
 			}
-			if self.scopes[i].contains_key(name.clone()) && !self.find_flag_for_scope(name.to_owned(), i) == 4 {
+			if self.scopes[i].contains_key(name.clone()) && self.find_flag_for_scope(name.to_owned(), i) != 4 {
 				self.scopes[i].insert(name.to_string(), value);
 				return;
 			}

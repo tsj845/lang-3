@@ -23,7 +23,10 @@ pub struct Parser {
 	meta_print_sep_spaces : u32,
 	meta_print_sep_value : String,
 	token_block : HashMap<String, bool>,
+	meta_dump_log : bool,
 	dbdepth : i64,
+	#[allow(dead_code)]
+	dbcounts : HashMap<String, i64>,
 }
 
 impl Parser {
@@ -40,7 +43,9 @@ impl Parser {
 			meta_print_sep_spaces : 1,
 			meta_print_sep_value : String::from(" "),
 			token_block : HashMap::new(),
+			meta_dump_log : false,
 			dbdepth : 0,
+			dbcounts : HashMap::new(),
 		}
 	}
 	fn __fault (&self) -> Token {
@@ -292,6 +297,7 @@ impl Parser {
 			if names.insert(t.value.clone(), 0).is_some() {
 				return self.__fault();
 			}
+			// println!("RFO: {}, {}", t.value, self.memory.find_flag(t.value.clone()));
 			t = self.memory.get(&t.value);
 		}
 	}
@@ -304,7 +310,11 @@ impl Parser {
 		if n.chars().nth(0).unwrap() == '$' {
 			n = String::from(&n[1..]);
 		}
+		// if n == "self" {
+		// 	panic!("SELF HALT");
+		// }
 		names.insert(n.clone(), 0);
+		// println!("RFB: {}, {}", n, self.memory.find_flag(n.clone()));
 		let mut r : Token = self.memory.get(&n);
 		loop {
 			if r.id != REF {
@@ -313,8 +323,15 @@ impl Parser {
 			if names.insert(r.value.clone(), 0).is_some() {
 				return self.__fault();
 			}
+			// println!("RF: {}, {}", r.value, self.memory.find_flag(r.value.clone()));
 			r = self.memory.get(&r.value);
 		}
+	}
+	fn derefp (&self, t : &Token) -> Token {
+		if t.id != PTR {
+			return t.clone();
+		}
+		return self.derefp(self.memory.pointer_mem.get(&t.value).unwrap());
 	}
 	fn printop (&mut self, mut i : usize, tokens : &Vec<Token>) -> usize {
 		i += 1;
@@ -362,9 +379,13 @@ impl Parser {
 					toks.push(token.clone());
 					i += 1;
 				}
+				// printlst(&toks);
 				copt = self.eval_exp(toks);
 				if copt.id == REF {
 					copt = self.deref(copt);
+				}
+				if copt.id == PTR {
+					copt = self.derefp(&copt);
 				}
 				let b : Vec<char> = copt.value.chars().collect();
 				let mut v = copt.value.clone();
@@ -392,6 +413,7 @@ impl Parser {
 		return i;
 	}
 	fn func_call (&mut self, i : usize, tokens : &mut Vec<Token>) -> usize {
+		self.LOG.logs("func call");
 		let t : Vec<Token> = self.derefb(&tokens[i-1]).list.as_ref().unwrap().clone();
 		let mut depth = 0;
 		let mut atoks : Vec<Token> = Vec::new();
@@ -442,7 +464,7 @@ impl Parser {
 				if o >= p {
 					break;
 				}
-				if atoks[o].id == SEP {
+				if atoks[o].cid == SEP {
 					o += 1;
 					break;
 				}
@@ -450,6 +472,7 @@ impl Parser {
 				o += 1;
 			}
 			let v = self.eval_exp(atoksn);
+			// println!("PARAM SET: {}, {}", vname, v);
 			self.memory.set(&vname, v);
 			j += 1;
 		}
@@ -480,7 +503,9 @@ impl Parser {
 			}
 			if toks[i].id == REF {
 				if toks[i].value.chars().nth(0).unwrap() == '$' {
-					toks[i] = self.deref(toks[i].clone());
+					// println!("{}", toks[i]);
+					toks[i] = self.derefb(&toks[i]);
+					// println!("{}", toks[i]);
 				}
 			}
 			i += 1;
@@ -492,7 +517,7 @@ impl Parser {
 			if i >= l {
 				break;
 			}
-			if toks[i].id == LIT || toks[i].id == REF {
+			if toks[i].id == LIT || toks[i].id == REF || toks[i].id == PTR {
 				copt = self.derefb(&toks[i]);
 			} else if toks[i].id == MAT || toks[i].id == LOG {
 				i += 1;
@@ -513,7 +538,7 @@ impl Parser {
 				i += 1;
 				l = toks.len();
 			} else if toks[i].id == DOT {
-				if self.BINDINGS.check_valid(&self.modules, &self.derefb(&toks[i-1]), &toks[i+1].value) {
+				if self.BINDINGS.check_valid(&self.modules, &self.memory.pointer_mem, &self.derefb(&toks[i-1]), &toks[i+1].value) {
 					let oi : usize = i-1;
 					let x : (usize, Token, Vec<Token>) = self.execute(toks.clone(), i);
 					toks = x.2;
@@ -537,13 +562,13 @@ impl Parser {
 				let t = self.eval_exp(tlst);
 				toks.remove(i);
 				toks[i-1] = self.derefb(&toks[i-1]);
-				if toks[i-1].id == LST {
+				if toks[i-1].cid == LST {
 					toks[i-1] = toks[i-1].get(t.value.parse::<usize>().unwrap());
-				} else if toks[i-1].id == DCT {
+				} else if toks[i-1].cid == DCT {
 					toks[i-1] = toks[i-1].getd(t.value);
 				}
 				copt = toks[i-1].clone();
-			} else if toks[i].id == PAR && toks[i].value == "(" && i > 0 && (toks[i-1].id == REF || toks[i-1].id == FUN) {
+			} else if toks[i].id == PAR && toks[i].value == "(" && i > 0 && (toks[i-1].id == REF || toks[i-1].cid == FUN) {
 				i = self.func_call(i, &mut toks);
 				i -= 1;
 				copt = toks[i].clone();
@@ -554,12 +579,18 @@ impl Parser {
 				l = toks.len();
 			} else if toks[i].id == KEY {
 				if toks[i].value == "create" {
+					// printlst(&toks);
 					let tok = self.derefb(&toks[i+1]);
-					if tok.id == OBJ {
-						if tok.hasd("__init__") {
-							i = self.method_call(i, &mut toks, tok, "__init__");
+					if tok.cid == OBJ {
+						let mut obj : Token = self.derefp(&tok);
+						if obj.hasd("__init__") {
+							obj = self.ptr_alloc(obj);
+							// print!("\x1b[38;2;0;255;255m");
+							// printlst(&toks);
+							// print!("\x1b[0m");
+							i = self.method_call(i, &mut toks, obj.clone(), "__init__");
 							i -= 1;
-							copt = toks[i].clone();
+							copt = obj;
 							l = toks.len();
 						}
 					}
@@ -695,11 +726,16 @@ impl Parser {
 		self.memory.rem_scope();
 		return i;
 	}
-	fn helper_obj_inheritance (&self, mut obj : Token) -> Token {
+	fn helper_obj_inheritance (&mut self, mut obj : Token) -> Token {
+		let props : Vec<Token> = obj.popd(String::from("\"props")).list.unwrap();
+		for prop in props {
+			let r = self.eval_exp(prop.list.as_ref().unwrap().clone());
+			obj.setd(prop.value, r);
+		}
 		let inherits : Vec<Token> = obj.popd(String::from("\"class inheritance")).list.unwrap();
 		for item in inherits {
 			let dr : Token = self.derefb(&item);
-			if dr.id == UDF {
+			if dr.cid == UDF {
 				continue;
 			}
 			for (key, val) in dr.dict.as_ref().unwrap() {
@@ -709,15 +745,28 @@ impl Parser {
 				obj.setd(key.clone(), val.clone());
 			}
 		}
-		return obj;
+		let ptrname = self.memory.get_ptr_name(&(obj.value.clone()+"-super"));
+		self.memory.ptr_alloc_global(&ptrname);
+		let pointer : Token = Token::new_ptr(OBJ, ptrname.clone(), obj.value.clone());
+		self.memory.pointer_mem.insert(ptrname, obj);
+		return pointer;
+	}
+	fn ptr_alloc (&mut self, obj : Token) -> Token {
+		let ptrname = self.memory.get_ptr_name(&obj.value);
+		self.memory.ptr_alloc(&ptrname);
+		let pointer : Token = Token::new_ptr(OBJ, ptrname.clone(), obj.value.clone());
+		self.memory.pointer_mem.insert(ptrname, obj);
+		return pointer;
 	}
 	fn method_call (&mut self, mut i : usize, mut tokens : &mut Vec<Token>, tok : Token, method_name : &str) -> usize {
-		// tokens.remove(i);
-		tokens[i] = tok.getd(method_name.to_owned());
-		println!("{}", tokens[i]);
+		tokens.remove(i);
+		tokens[i] = self.derefp(&tok).getd(method_name.to_owned());
+		// println!("{}", tokens[i]);
 		i += 1;
 		tokens.insert(i+1, Token::newsb(SEP, ","));
 		tokens.insert(i+1, tok);
+		// printlst(&tokens);
+		self.LOG.log(String::from("method call (") + method_name + ") -> to func");
 		return self.func_call(i, &mut tokens);
 	}
 	fn eval (&mut self, mut tokens : Vec<Token>) -> Token {
@@ -741,6 +790,9 @@ impl Parser {
 				} else if token.value.starts_with("token_block__") {
 					let v : &str = &token.value[13..];
 					self.token_block.insert(v.to_string(), tokens[token_index+1].value == "true");
+				} else if token.value == "dump_log" {
+					self.meta_dump_log = tokens[token_index+1].bool();
+					token_index += 1;
 				}
 			// handle keywords
 			} else if token.id == KEY {
@@ -760,7 +812,7 @@ impl Parser {
 						if token_index >= tokens_length {
 							break;
 						}
-						if tokens[token_index].id == NLN {
+						if tokens[token_index].cid == NLN {
 							break;
 						}
 						lst.push(tokens[token_index].clone());
@@ -771,18 +823,18 @@ impl Parser {
 				} else if token.value == "dumpscope" {
 					token_index = self.dumpscope(token_index, &tokens);
 				} else if token.value == "global" {
-					if tokens[token_index+1].id == REF {
+					if tokens[token_index+1].cid == REF {
 						self.memory.flag_var(tokens[token_index+1].value.clone(), 3u8);
 					}
 				} else if token.value == "local" {
-					if tokens[token_index+1].id == REF {
+					if tokens[token_index+1].cid == REF {
 						self.memory.flag_var(tokens[token_index+1].value.clone(), 0u8);
 					}
 				} else if token.value == "rm" {
 					self.memory.rm(&tokens[token_index+1].value);
 					token_index += 1;
 				} else if token.value == "garbage" {
-					if tokens[token_index+1].id == NLN {
+					if tokens[token_index+1].cid == NLN {
 						self.memory.clear();
 					} else {
 						self.memory.garbage(&tokens[token_index+1].value);
@@ -816,15 +868,16 @@ impl Parser {
 					self.memory.inter_flag_set(&tokens[token_index+1].value, 1u8);
 					token_index += 1;
 				} else if token.value == "class" {
-					if tokens[token_index+1].id == OBJ {
+					if tokens[token_index+1].cid == OBJ {
 						let val = &tokens[token_index+1].value.clone();
 						self.memory.flag_var(val.clone(), 3u8);
-						self.memory.set(val, self.helper_obj_inheritance(tokens.remove(token_index+1)));
+						let ret = self.helper_obj_inheritance(tokens.remove(token_index+1));
+						self.memory.set(val, ret);
 						self.memory.set_protection(val, 1u8);
 					}
 				} else if token.value == "dumpobj" {
 					println!("\n");
-					let d = self.derefb(&tokens[token_index+1]);
+					let d = self.derefp(&self.derefb(&tokens[token_index+1]));
 					println!("{}DUMPING OBJECT PROPERTIES:\x1b[0m {}", INTERPRETER_DEBUG_BRIGHTPINK, d.value);
 					println!("");
 					for (k, j) in d.dict.as_ref().unwrap() {
@@ -833,8 +886,8 @@ impl Parser {
 					println!("\n");
 				} else if token.value == "create" {
 					let tok = self.derefb(&tokens[token_index+1]);
-					if tok.id == OBJ {
-						if tok.hasd("__init__") {
+					if tok.cid == OBJ {
+						if self.derefp(&tok).hasd("__init__") {
 							token_index = self.method_call(token_index, &mut tokens, tok, "__init__");
 							tokens_length = tokens.len();
 						}
@@ -849,11 +902,6 @@ impl Parser {
 				// seperate simple assignment from modification to a value
 				if operand == "=" {
 					let mut r : Token = tokens[token_index+1].clone();
-					if self.derefb(&r).id == FUN && tokens[token_index+2].id == PAR && tokens[token_index+2].value == "(" {
-						self.func_call(token_index+2, &mut tokens);
-						tokens_length = tokens.len();
-						r = tokens[token_index+1].clone();
-					}
 					let mut lst : Vec<Token> = Vec::new();
 					lst.push(r.clone());
 					let mut ind : usize = token_index+2;
@@ -861,7 +909,7 @@ impl Parser {
 						if ind >= tokens_length {
 							break;
 						}
-						if tokens[ind].id == NLN {
+						if tokens[ind].cid == NLN {
 							break;
 						}
 						lst.push(tokens[ind].clone());
@@ -872,7 +920,7 @@ impl Parser {
 						let name = tokens[imt].value.clone();
 						let is_ref = tokens[imt].id == REF;
 						tokens[imt] = self.derefb(&tokens[imt]);
-						if tokens[imt].id == LST {
+						if tokens[imt].cid == LST {
 							let index = self.eval_exp(tokens[imt+1].list.as_ref().unwrap().clone()).value.parse::<usize>().unwrap();
 							tokens[imt].set(index, r);
 						} else {
@@ -885,17 +933,27 @@ impl Parser {
 					} else {
 						self.memory.set(varname, r);
 					}
+					token_index = ind;
 				} else {
-					let mut v2 : String = self.derefb(&tokens[token_index+1]).value;
-					if self.derefb(&tokens[token_index+1]).id == FUN {
-						self.func_call(token_index+2, &mut tokens);
-						v2 = self.derefb(&tokens[token_index+1]).value;
+					let v2 : String;
+					let mut lst : Vec<Token> = Vec::new();
+					let mut ind : usize = token_index+1;
+					loop {
+						if ind >= tokens_length {
+							break;
+						}
+						if tokens[ind].cid == NLN {
+							break;
+						}
+						lst.push(tokens[ind].clone());
+						ind += 1;
 					}
+					v2 = self.eval_exp(lst).value;
 					if subscript {
 						let name = tokens[imt].value.clone();
 						let is_ref = tokens[imt].id == REF;
 						tokens[imt] = self.derefb(&tokens[imt]);
-						if tokens[imt].id == LST {
+						if tokens[imt].cid == LST {
 							let index = self.eval_exp(tokens[imt+1].list.as_ref().unwrap().clone()).value.parse::<usize>().unwrap();
 							let va = tokens[imt].get(index).value;
 							tokens[imt].set(index, self.assignment_operation(&operand, va, v2));
@@ -910,19 +968,20 @@ impl Parser {
 					} else {
 						self.memory.set(varname, self.assignment_operation(&operand, self.memory.get(varname).value, v2));
 					}
+					token_index = ind;
 				}
 				tokens_length = tokens.len();
 			// handle function initialization
-			} else if token.id == FUN {
+			} else if token.cid == FUN {
 				self.memory.set(&token.value, token.clone());
 			// handle function calls
-			} else if token_index > 0 && token.id == PAR && token.value == "(" && self.deref(tokens[token_index-1].clone()).id == FUN {
+			} else if token_index > 0 && token.id == PAR && token.value == "(" && self.deref(tokens[token_index-1].clone()).cid == FUN {
 				token_index = self.func_call(token_index, &mut tokens);
 				tokens_length = tokens.len();
 			// handle object properties and methods
 			} else if token.id == DOT && token_index < tokens_length-1 && tokens[token_index+1].id == REF {
 				// println!("UNCHECKED BINDING: {}", tokens[token_index-1]);
-				if self.BINDINGS.check_valid(&self.modules, &self.derefb(&tokens[token_index-1]), &tokens[token_index+1].value) {
+				if self.BINDINGS.check_valid(&self.modules, &self.memory.pointer_mem, &self.derefb(&tokens[token_index-1]), &tokens[token_index+1].value) {
 					// println!("CONFIRMED BINDING");
 					let oi : usize = token_index-1;
 					let x : (usize, Token, Vec<Token>) = self.execute(tokens.clone(), token_index);
@@ -972,7 +1031,7 @@ impl Parser {
 			if i >= l {
 				return (i-1, self.__fault());
 			}
-			if tokens[i].id == PAR {
+			if tokens[i].cid == PAR {
 				if tokens[i].value == "(" {
 					depth += 1;
 				} else if tokens[i].value == ")" {
@@ -1033,7 +1092,7 @@ impl Parser {
 			}
 			return Token::new(LIT, String::from("\"")+&args[0].value+"\"", BASE_TOKEN);
 		} else if name == "info" {
-			println!("VERNO: {}", VERSION);
+			println!("\nVERNO: {}\n", VERSION);
 		}
 		return self.__fault();
 	}
@@ -1045,7 +1104,7 @@ impl Parser {
 			if i >= tokens.len() {
 				break;
 			}
-			if tokens[i+1].id == PAR {
+			if tokens[i+1].cid == PAR {
 				if tokens[i+1].value == ")" {
 					depth -= 1;
 					if depth == 0 {
@@ -1078,7 +1137,7 @@ impl Parser {
 				if o >= k {
 					break;
 				}
-				if atoks[o].id == SEP {
+				if atoks[o].cid == SEP {
 					o += 1;
 					break;
 				}
@@ -1100,6 +1159,8 @@ impl Parser {
 		let is_ref : bool = tokens[i-1].id == REF;
 		let ov : &str = &tokens[i-1].value.clone();
         let mut t : Token = match is_ref {false=>tokens[i-1].clone(),true=>self.memory.get(&tokens[i-1].value)};
+		let is_ptr : bool = t.id == PTR;
+		t = match is_ptr {true=>self.memory.pointer_mem.get(&t.value).unwrap().clone(),false=>t};
 		// println!("EXEC DATA: {}, {}, {}", is_ref, t, target);
         if t.data_type == DT_STR {
             let btype : &&str = self.BINDINGS.get_type(DT_STR, target);
@@ -1177,7 +1238,7 @@ impl Parser {
 		if t.data_type == DT_OBJ {
 			// println!("OBJECT");
 			let r : Token = t.getd(target.to_string()).clone();
-			if r.id == FUN {
+			if r.cid == FUN {
 				// todo
 			}
 			return (i, r, tokens);
@@ -1254,17 +1315,14 @@ impl Parser {
 		systok.setd(String::from("default"), Token::newsb(LIT, r#""\x1b[39m""#));
 		self.memory.set("System", systok);
 		self.memory.set_protection("System", 1u8);
-		let mut dummytok : Token = Token::news(OBJ, "DUMMY", DICT_TOKEN);
-		dummytok.setd(String::from("lime"), Token::newsb(LIT, "LIME"));
-		dummytok.setd(String::from("bootable"), Token::newsb(LIT, "true"));
-		self.memory.set("Dummy", dummytok);
-		self.memory.set_protection("Dummy", 1u8);
 		self.__prelude();
 	}
 	pub fn run (&mut self) -> u8 {
 		self.memory.new_scope();
 		self.eval(self.tokens.clone());
-		// self.LOG.dump();
+		if self.meta_dump_log {
+			self.LOG.dump();
+		}
 		return 0;
 	}
 }
