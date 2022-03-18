@@ -567,7 +567,6 @@ impl Parser {
 				} else if toks[i-1].cid == DCT {
 					toks[i-1] = toks[i-1].getd(t.value);
 				}
-				// printlst(&toks);
 				copt = toks[i-1].clone();
 				i -= 1;
 				l = toks.len();
@@ -582,15 +581,11 @@ impl Parser {
 				l = toks.len();
 			} else if toks[i].id == KEY {
 				if toks[i].value == "create" {
-					// printlst(&toks);
 					let tok = self.derefb(&toks[i+1]);
 					if tok.cid == OBJ {
 						let mut obj : Token = self.derefp(&tok);
 						if obj.hasd("__init__") {
 							obj = self.ptr_alloc(obj);
-							// print!("\x1b[38;2;0;255;255m");
-							// printlst(&toks);
-							// print!("\x1b[0m");
 							i = self.method_call(i, &mut toks, obj.clone(), "__init__");
 							i -= 1;
 							copt = obj;

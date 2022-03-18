@@ -8,24 +8,26 @@
 c = 0;
 
 class MyClass inheriting System {
-    property bootable = true;
+    property myprop = "truthiness... NO";
     method __init__ (self) {
         global c;
-        print "iter", $c;
-        // dumpscope 2;
         c += 1;
-        print "self", $self;
-        print "boot", self.bootable;
+        print "number of instances:", $c;
+        // dumpscope 2;
+        // print "self", $self;
+        print "init:", MyClass.myprop;
     }
 }
 
-print "class bootable property:", MyClass.bootable;
+print "class myprop property:", MyClass.myprop;
 
 // dumptoks;
 
 // dumpscope 2;
 
 inst = create MyClass();
+
+create MyClass();
 
 print inst;
 
@@ -39,9 +41,9 @@ print MyClass.lime + "MyClass LIME" + MyClass.default;
 //#[token_block__NLN=true]
 //#[token_block__MET=true]
 
-#[terminating_newlines=1]
-log "MAIN PROGRAM DUMP";
+// #[terminating_newlines=1]
+// log "MAIN PROGRAM DUMP";
 
-dumpscope 2;
+// dumpscope 2;
 
 info();
