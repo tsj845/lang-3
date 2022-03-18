@@ -517,7 +517,7 @@ impl Parser {
 			if i >= l {
 				break;
 			}
-			if toks[i].id == LIT || toks[i].id == REF || toks[i].id == PTR {
+			if toks[i].id == LIT || toks[i].id == REF || toks[i].id == PTR || toks[i].cid == LST || toks[i].cid == DCT {
 				copt = self.derefb(&toks[i]);
 			} else if toks[i].id == MAT || toks[i].id == LOG {
 				i += 1;
@@ -561,13 +561,16 @@ impl Parser {
 				let tlst = toks[i].list.as_ref().unwrap().clone();
 				let t = self.eval_exp(tlst);
 				toks.remove(i);
-				toks[i-1] = self.derefb(&toks[i-1]);
+				toks[i-1] = self.derefp(&self.derefb(&toks[i-1]));
 				if toks[i-1].cid == LST {
 					toks[i-1] = toks[i-1].get(t.value.parse::<usize>().unwrap());
 				} else if toks[i-1].cid == DCT {
 					toks[i-1] = toks[i-1].getd(t.value);
 				}
+				// printlst(&toks);
 				copt = toks[i-1].clone();
+				i -= 1;
+				l = toks.len();
 			} else if toks[i].id == PAR && toks[i].value == "(" && i > 0 && (toks[i-1].id == REF || toks[i-1].cid == FUN) {
 				i = self.func_call(i, &mut toks);
 				i -= 1;
@@ -822,6 +825,7 @@ impl Parser {
 					return self.derefb(&r);
 				} else if token.value == "dumpscope" {
 					token_index = self.dumpscope(token_index, &tokens);
+					println!("\n");
 				} else if token.value == "global" {
 					if tokens[token_index+1].id == REF {
 						self.memory.flag_var(tokens[token_index+1].value.clone(), 3u8);
@@ -851,8 +855,8 @@ impl Parser {
 				} else if token.value == "dumptoks" {
 					printlst::<Token>(&self.__filter(&tokens));
 				} else if token.value == "dumplc" {
-					println!("{}{}\x1b[0m", INTERPRETER_DEBUG_BRIGHTPINK, self.derefb(&tokens[token_index+1]));
-					printlst::<Token>(&self.derefb(&tokens[token_index+1]).list.as_ref().unwrap());
+					println!("{}{}\x1b[0m", INTERPRETER_DEBUG_BRIGHTPINK, self.derefp(&self.derefb(&tokens[token_index+1])));
+					printlst::<Token>(&self.derefp(&self.derefb(&tokens[token_index+1])).list.as_ref().unwrap());
 					token_index += 1;
 				} else if token.value == "dumpflags" {
 					self.memory.dump_flags();

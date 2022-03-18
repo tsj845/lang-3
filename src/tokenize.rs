@@ -2,7 +2,7 @@ use regex::Regex;
 use lazy_static::lazy_static;
 
 use crate::statics::*;
-// use crate::static_colors::*;
+use crate::static_colors::*;
 
 fn get_complement_surround (given : char) -> char {
 	match given {
@@ -150,6 +150,8 @@ fn process_grp (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 		}
 		return (i, tokens, f);
 	} else if tokens[i].value == "$[" {
+		let linev = tokens[i].line;
+		let charav = tokens[i].chara;
 		tokens.remove(i);
 		let mut lst : Vec<Token> = Vec::new();
 		let mut depth : usize = 1;
@@ -173,8 +175,11 @@ fn process_grp (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 			}
 		}
 		lst = preprocess(lst);
+		print!("{}", INTERPRETER_DEBUG_ORANGE);
+		printlst(&lst);
+		print!("\x1b[0m");
 		let mut f : Token = Token::news(LST, "LST", LIST_TOKEN);
-		f.meta(tokens[i].line, tokens[i].chara);
+		f.meta(linev, charav);
 		for t in lst {
 			if t.id != SEP {
 				f.push(t.clone());
