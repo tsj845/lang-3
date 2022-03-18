@@ -15,7 +15,7 @@ class MyClass inheriting System {
         // dumpscope 2;
         c += 1;
         print "self", $self;
-        print "boot";
+        print "boot", self.bootable;
     }
 }
 
