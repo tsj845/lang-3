@@ -1,0 +1,20 @@
+global global_var = 10;
+
+func f1 () {
+    local local_var = 20;
+    print $global_var, $local_var;
+}
+
+f1();
+
+print $local_var;
+
+unique unique_var = 5;
+
+func f2 () {
+    print "without parent", $unique_var;
+    parent unique_var;
+    print "with parent", $unique_var;
+}
+
+f2();
