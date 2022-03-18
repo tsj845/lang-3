@@ -823,18 +823,26 @@ impl Parser {
 				} else if token.value == "dumpscope" {
 					token_index = self.dumpscope(token_index, &tokens);
 				} else if token.value == "global" {
-					if tokens[token_index+1].cid == REF {
+					if tokens[token_index+1].id == REF {
 						self.memory.flag_var(tokens[token_index+1].value.clone(), 3u8);
 					}
 				} else if token.value == "local" {
-					if tokens[token_index+1].cid == REF {
+					if tokens[token_index+1].id == REF {
 						self.memory.flag_var(tokens[token_index+1].value.clone(), 0u8);
+					}
+				} else if token.value == "unique" {
+					if tokens[token_index+1].id == REF {
+						self.memory.flag_var(tokens[token_index+1].value.clone(), 4u8);
+					}
+				} else if token.value == "parent" {
+					if tokens[token_index+1].id == REF {
+						self.memory.flag_var(tokens[token_index+1].value.clone(), 5u8);
 					}
 				} else if token.value == "rm" {
 					self.memory.rm(&tokens[token_index+1].value);
 					token_index += 1;
 				} else if token.value == "garbage" {
-					if tokens[token_index+1].cid == NLN {
+					if tokens[token_index+1].id == NLN {
 						self.memory.clear();
 					} else {
 						self.memory.garbage(&tokens[token_index+1].value);

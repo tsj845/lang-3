@@ -56,6 +56,8 @@ impl VarScopes {
 		for (key, val) in &self.scopes[index] {
 			if self.find_gv(key.to_string()) == 1 {
 				println!("{} : {} {}protected\x1b[39m", key, val, DEBUG_BLUE_SCOPE_DUMP);
+			} else if self.find_flag_for_scope(key.clone(), index) == 4 {
+				println!("{} : {} {}unique\x1b[39m", key, val, DEBUG_BLUE_SCOPE_DUMP);
 			} else {
 				println!("{} : {}", key, val);
 			}
@@ -153,7 +155,7 @@ impl VarScopes {
 		let mut i : usize = self.scope_count-1;
 		loop {
 			// println!("GRD: {}, {}, {}", name, self.scopes[i].contains_key(name), self.find_flag_for_scope(name.to_owned(), i));
-			if self.scopes[i].contains_key(name) && self.find_flag_for_scope(name.to_owned(), i) != 4 {
+			if self.scopes[i].contains_key(name) && (self.find_flag_for_scope(name.to_owned(), i) != 4 || i == self.scope_count-1) {
 				return self.scopes[i].get(&name.to_string()).unwrap().clone();
 			}
 			if i == 0 {
@@ -169,7 +171,7 @@ impl VarScopes {
 			if i >= self.scope_count {
 				break;
 			}
-			if self.scopes[i].contains_key(name.clone()) && self.find_flag_for_scope(name.to_owned(), i) != 4 {
+			if self.scopes[i].contains_key(name.clone()) && (self.find_flag_for_scope(name.to_owned(), i) != 4 || i == self.scope_count-1) {
 				return self.scopes[i].get(&name.to_string()).unwrap().clone();
 			}
 			i += 1;
@@ -177,7 +179,7 @@ impl VarScopes {
 		return Token::news(UDF, "UDF", BASE_TOKEN);
 	}
 	fn get_p (&self, name : &str) -> Token {
-		return self.scopes[self.scope_count-1].get(name).unwrap_or(&Token::news(UDF, "UDF", BASE_TOKEN)).clone();
+		return self.scopes[self.scope_count-2].get(name).unwrap_or(&Token::news(UDF, "UDF", BASE_TOKEN)).clone();
 	}
 	pub fn get (&self, name : &str) -> Token {
 		if self.find_gv(name.to_string()) == 1 {
@@ -195,7 +197,7 @@ impl VarScopes {
 	fn set_r (&mut self, name : &str, value : Token) {
 		let mut i : usize = self.scope_count-1;
 		loop {
-			if self.scopes[i].contains_key(name.clone()) && self.find_flag_for_scope(name.to_owned(), i) != 4 {
+			if self.scopes[i].contains_key(name.clone()) && (self.find_flag_for_scope(name.to_owned(), i) != 4 || i == self.scope_count-1) {
 				self.scopes[i].insert(name.to_string(), value);
 				return;
 			}
@@ -212,7 +214,7 @@ impl VarScopes {
 			if i >= self.scope_count {
 				break;
 			}
-			if self.scopes[i].contains_key(name.clone()) && self.find_flag_for_scope(name.to_owned(), i) != 4 {
+			if self.scopes[i].contains_key(name.clone()) && (self.find_flag_for_scope(name.to_owned(), i) != 4 || i == self.scope_count-1) {
 				self.scopes[i].insert(name.to_string(), value);
 				return;
 			}
@@ -234,6 +236,8 @@ impl VarScopes {
 			self.set_f(name, value);
 		} else if flag == 5 {
 			self.set_p(name, value);
+		} else if flag == 4 {
+			self.scopes[self.scope_count-1].insert(name.to_string(), value);
 		}
 	}
 	fn rm_r (&mut self, name : &str) {

@@ -39,9 +39,23 @@ print MyClass.lime + "MyClass LIME" + MyClass.default;
 //#[token_block__NLN=true]
 //#[token_block__MET=true]
 
-// #[terminating_newlines=1]
-// log "MAIN PROGRAM DUMP";
+#[terminating_newlines=1]
+log "MAIN PROGRAM DUMP";
 
-// dumpscope 2;
+dumpscope 2;
 
 info();
+
+func f2 () {
+    parent p;
+    print $p;
+    // dumpscope 2;
+}
+
+func f1 () {
+    unique p = "unique var";
+    // p = "unique var";
+    f2();
+}
+
+f1();
