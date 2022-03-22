@@ -285,25 +285,27 @@ impl Parser {
 	fn assignment_operation (&self, operand : &str, v1 : String, v2 : String) -> Token {
 		return self.operation(&operand.chars().collect::<Vec<char>>()[0].to_string(), v1, v2);
 	}
-	fn deref (&self, mut t : Token) -> Token {
+	fn deref (&self, mut t : Token) -> Result<Token, (String, usize, usize)> {
 		if t.value.starts_with('$') {
 			t.value = String::from(&t.value[1..]);
 		}
+		let line = t.line;
+		let chara = t.chara;
 		let mut names : HashMap<String, u8> = HashMap::new();
 		loop {
 			if t.id != REF {
-				return t;
+				return Ok(t);
 			}
 			if names.insert(t.value.clone(), 0).is_some() {
-				return self.__fault();
+				return Err((String::from("circular reference loop"), line, chara));
 			}
 			// println!("RFO: {}, {}", t.value, self.memory.find_flag(t.value.clone()));
 			t = self.memory.get(&t.value);
 		}
 	}
-	fn derefb (&self, t : &Token) -> Token {
+	fn derefb (&self, t : &Token) -> Result<Token, (String, usize, usize)> {
 		if t.id != REF {
-			return t.clone();
+			return Ok(t.clone());
 		}
 		let mut names : HashMap<String, u8> = HashMap::new();
 		let mut n : String = t.value.clone();
@@ -318,22 +320,22 @@ impl Parser {
 		let mut r : Token = self.memory.get(&n);
 		loop {
 			if r.id != REF {
-				return r;
+				return Ok(r);
 			}
 			if names.insert(r.value.clone(), 0).is_some() {
-				return self.__fault();
+				return Err((String::from("circular reference loop"), t.line, t.chara));
 			}
 			// println!("RF: {}, {}", r.value, self.memory.find_flag(r.value.clone()));
 			r = self.memory.get(&r.value);
 		}
 	}
-	fn derefp (&self, t : &Token) -> Token {
+	fn derefp (&self, t : &Token) -> Result<Token, (String, usize, usize)> {
 		if t.id != PTR {
-			return t.clone();
+			return Ok(t.clone());
 		}
-		return self.derefp(self.memory.pointer_mem.get(&t.value).unwrap());
+		return self.derefp(match self.memory.pointer_mem.get(&t.value) {Some(x)=>x,_=>{return Err((String::from("bad pointer"), t.line, t.chara))}});
 	}
-	fn printop (&mut self, mut i : usize, tokens : &Vec<Token>) -> usize {
+	fn printop (&mut self, mut i : usize, tokens : &Vec<Token>) -> Result<usize, (String, usize, usize)> {
 		i += 1;
 		let l = tokens.len();
 		let mut new_arg_ready = true;
@@ -380,12 +382,12 @@ impl Parser {
 					i += 1;
 				}
 				// printlst(&toks);
-				copt = self.eval_exp(toks);
+				copt = match self.eval_exp(toks) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 				if copt.id == REF {
-					copt = self.deref(copt);
+					copt = match self.deref(copt) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 				}
 				if copt.id == PTR {
-					copt = self.derefp(&copt);
+					copt = match self.derefp(&copt) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 				}
 				let b : Vec<char> = copt.value.chars().collect();
 				let mut v = copt.value.clone();
@@ -398,7 +400,7 @@ impl Parser {
 			i += 1;
 		}
 		print!("{}", String::from("\n").repeat(self.meta_terminating_newlines as usize));
-		return i;
+		return Ok(i);
 	}
 	fn dumpscope (&self, mut i : usize, tokens : &Vec<Token>) -> usize {
 		i += 1;
@@ -412,9 +414,9 @@ impl Parser {
 		}
 		return i;
 	}
-	fn func_call (&mut self, i : usize, tokens : &mut Vec<Token>) -> usize {
+	fn func_call (&mut self, i : usize, tokens : &mut Vec<Token>) -> Result<usize, (String, usize, usize)> {
 		self.LOG.logs("func call");
-		let t : Vec<Token> = self.derefb(&tokens[i-1]).list.as_ref().unwrap().clone();
+		let t : Vec<Token> = match self.derefb(&tokens[i-1]){Ok(x)=>x,Err(e)=>{return Err(e)}}.list.as_ref().unwrap().clone();
 		let mut depth = 0;
 		let mut atoks : Vec<Token> = Vec::new();
 		loop {
@@ -471,28 +473,28 @@ impl Parser {
 				atoksn.push(atoks[o].clone());
 				o += 1;
 			}
-			let v = self.eval_exp(atoksn);
+			let v = match self.eval_exp(atoksn) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 			// println!("PARAM SET: {}, {}", vname, v);
 			self.memory.set(&vname, v);
 			j += 1;
 		}
-		let res = self.eval(t);
+		let res = match self.eval(t) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 		if tokens.len() > i-1 {
 			tokens[i-1] = res;
 		} else {
 			tokens.push(res);
 		}
 		self.memory.rem_scope();
-		return i;
+		return Ok(i);
 	}
-	fn eval_exp (&mut self, mut toks : Vec<Token>) -> Token {
+	fn eval_exp (&mut self, mut toks : Vec<Token>) -> Result<Token, (String, usize, usize)> {
 		lazy_static! {
 			static ref NUMBER_RE : Regex = Regex::new(NUMBER_RE_PAT).unwrap();
 			static ref DECI_RE : Regex = Regex::new(DECI_RE_PAT).unwrap();
 			static ref STRING_RE : Regex = Regex::new(TOKEN_STR_RE_PAT).unwrap();
 		}
 		if toks.len() == 0 {
-			return self.__fault();
+			return Err((String::from("no tokens provided"), 0, 0));
 		}
 		self.dbdepth += 1;
 		// printlst(&toks);
@@ -504,7 +506,7 @@ impl Parser {
 			if toks[i].id == REF {
 				if toks[i].value.chars().nth(0).unwrap() == '$' {
 					// println!("{}", toks[i]);
-					toks[i] = self.derefb(&toks[i]);
+					toks[i] = match self.derefb(&toks[i]) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 					// println!("{}", toks[i]);
 				}
 			}
@@ -518,7 +520,7 @@ impl Parser {
 				break;
 			}
 			if toks[i].id == LIT || toks[i].id == REF || toks[i].id == PTR || toks[i].cid == LST || toks[i].cid == DCT {
-				copt = self.derefb(&toks[i]);
+				copt = match self.derefb(&toks[i]) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 			} else if toks[i].id == MAT || toks[i].id == LOG {
 				i += 1;
 				let mut optoks : Vec<Token> = Vec::new();
@@ -531,16 +533,16 @@ impl Parser {
 					}
 					optoks.push(toks.remove(i));
 				}
-				let r = self.eval_exp(optoks);
+				let r = match self.eval_exp(optoks) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 				toks.insert(i, r);
 				i -= 1;
-				copt = self.operation(&toks[i].value, self.derefb(&copt).value, toks[i+1].value.clone());
+				copt = self.operation(&toks[i].value, match self.derefb(&copt) {Ok(x)=>x,Err(e)=>{return Err(e)}}.value, toks[i+1].value.clone());
 				i += 1;
 				l = toks.len();
 			} else if toks[i].id == DOT {
-				if self.BINDINGS.check_valid(&self.modules, &self.memory.pointer_mem, &self.derefb(&toks[i-1]), &toks[i+1].value) {
+				if self.BINDINGS.check_valid(&self.modules, &self.memory.pointer_mem, &match self.derefb(&toks[i-1]) {Ok(x)=>x,Err(e)=>{return Err(e)}}, &toks[i+1].value) {
 					let oi : usize = i-1;
-					let x : (usize, Token, Vec<Token>) = self.execute(toks.clone(), i);
+					let x : (usize, Token, Vec<Token>) = match self.execute(toks.clone(), i) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 					toks = x.2;
 					i = x.0;
 					toks[i-1] = x.1;
@@ -559,34 +561,35 @@ impl Parser {
 				}
 			} else if toks[i].id == IDX {
 				let tlst = toks[i].list.as_ref().unwrap().clone();
-				let t = self.eval_exp(tlst);
+				let t = match self.eval_exp(tlst) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 				toks.remove(i);
-				toks[i-1] = self.derefp(&self.derefb(&toks[i-1]));
+				toks[i-1] = match self.derefp(&match self.derefb(&toks[i-1]){Ok(x)=>x,Err(e)=>{return Err(e)}}) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 				if toks[i-1].cid == LST {
-					toks[i-1] = toks[i-1].get(t.value.parse::<usize>().unwrap());
+					toks[i-1] = match toks[i-1].get(t.value.parse::<usize>().unwrap()) {Ok(x)=>x,Err(e)=>{return Err((e, toks[i-1].line, toks[i-1].chara))}};
 				} else if toks[i-1].cid == DCT {
-					toks[i-1] = toks[i-1].getd(t.value);
+					toks[i-1] = match toks[i-1].getd(t.value) {Ok(x)=>x,Err(e)=>{return Err((e, toks[i-1].line, toks[i-1].chara))}};
 				}
 				copt = toks[i-1].clone();
 				i -= 1;
 				l = toks.len();
 			} else if toks[i].id == PAR && toks[i].value == "(" && i > 0 && (toks[i-1].id == REF || toks[i-1].cid == FUN) {
-				i = self.func_call(i, &mut toks);
+				i = match self.func_call(i, &mut toks) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 				i -= 1;
 				copt = toks[i].clone();
 				l = toks.len();
 			} else if toks[i].id == BND {
-				i = self.binding_execution(i, &mut toks);
+				i = match self.binding_execution(i, &mut toks) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 				copt = toks[i].clone();
 				l = toks.len();
 			} else if toks[i].id == KEY {
 				if toks[i].value == "create" {
-					let tok = self.derefb(&toks[i+1]);
+					let tok = match self.derefb(&toks[i+1]) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 					if tok.cid == OBJ {
-						let mut obj : Token = self.derefp(&tok);
-						if obj.hasd("__init__") {
+						let mut obj : Token = match self.derefp(&tok) {Ok(x)=>x,Err(e)=>{return Err(e)}};
+						if match obj.hasd("__init__") {Ok(x)=>x,Err(e)=>{return Err((e, obj.line, obj.chara))}} {
+							obj = match self.instantiate(obj) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 							obj = self.ptr_alloc(obj);
-							i = self.method_call(i, &mut toks, obj.clone(), "__init__");
+							i = match self.method_call(i, &mut toks, obj.clone(), "__init__") {Ok(x)=>x,Err(e)=>{return Err(e)}};
 							i -= 1;
 							copt = obj;
 							l = toks.len();
@@ -597,10 +600,10 @@ impl Parser {
 			i += 1;
 		}
 		self.dbdepth -= 1;
-		return copt;
+		return Ok(copt);
 	}
-	fn eval_for_loop (&mut self, i : usize, tokens : &mut Vec<Token>) -> usize {
-		let t : Vec<Token> = self.derefb(&tokens[i]).list.as_ref().unwrap().clone();
+	fn eval_for_loop (&mut self, i : usize, tokens : &mut Vec<Token>) -> Result<usize, (String, usize, usize)> {
+		let t : Vec<Token> = match self.derefb(&tokens[i]){Ok(x)=>x,Err(e)=>{return Err(e)}}.list.as_ref().unwrap().clone();
 		let mut ind : usize = 0;
 		let mut start : i64;
 		let mut sc : usize = 0;
@@ -640,8 +643,8 @@ impl Parser {
 			}
 			j += 1;
 		}
-		let v1 = self.eval_exp(ls1).value;
-		let v2 = self.eval_exp(ls2).value;
+		let v1 = match self.eval_exp(ls1){Ok(x)=>x,Err(e)=>{return Err(e)}}.value;
+		let v2 = match self.eval_exp(ls2){Ok(x)=>x,Err(e)=>{return Err(e)}}.value;
 		start = v1.parse::<i64>().unwrap_or(0);
 		let end = v2.parse::<i64>().unwrap_or(0);
 		tokens.remove(i-1);
@@ -652,7 +655,7 @@ impl Parser {
 				break;
 			}
 			self.memory.set(&vname, Token::new(LIT, start.to_string(), BASE_TOKEN));
-			let r = self.eval(t.clone());
+			let r = match self.eval(t.clone()) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 			if r.id == SIG {
 				if r.value == "BREAK" {
 					break;
@@ -661,10 +664,10 @@ impl Parser {
 			start += 1;
 		}
 		self.memory.rem_scope();
-		return i;
+		return Ok(i);
 	}
-	fn eval_while_loop (&mut self, i : usize, tokens : &mut Vec<Token>) -> usize {
-		let t : Vec<Token> = self.derefb(&tokens[i]).list.as_ref().unwrap().clone();
+	fn eval_while_loop (&mut self, i : usize, tokens : &mut Vec<Token>) -> Result<usize, (String, usize, usize)> {
+		let t : Vec<Token> = match self.derefb(&tokens[i]){Ok(x)=>x,Err(e)=>{return Err(e)}}.list.as_ref().unwrap().clone();
 		let mut ind : usize = 0;
 		let mut ls : Vec<Token> = Vec::new();
 		loop {
@@ -680,10 +683,10 @@ impl Parser {
 		tokens.remove(i-1);
 		self.memory.new_scope();
 		loop {
-			if !self.eval_exp(ls.clone()).bool() {
+			if !match self.eval_exp(ls.clone()){Ok(x)=>x,Err(e)=>{return Err(e)}}.bool() {
 				break;
 			}
-			let r = self.eval(t.clone());
+			let r = match self.eval(t.clone()) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 			if r.id == SIG {
 				if r.value == "BREAK" {
 					break;
@@ -691,10 +694,10 @@ impl Parser {
 			}
 		}
 		self.memory.rem_scope();
-		return i;
+		return Ok(i);
 	}
-	fn eval_if_block (&mut self, i : usize, tokens : &mut Vec<Token>) -> (usize, bool) {
-		let t : Vec<Token> = self.derefb(&tokens[i]).list.as_ref().unwrap().clone();
+	fn eval_if_block (&mut self, i : usize, tokens : &mut Vec<Token>) -> Result<(usize, bool), (String, usize, usize)> {
+		let t : Vec<Token> = match self.derefb(&tokens[i]){Ok(x)=>x,Err(e)=>{return Err(e)}}.list.as_ref().unwrap().clone();
 		let mut ls : Vec<Token> = Vec::new();
 		let mut ind : usize = 0;
 		loop {
@@ -707,32 +710,32 @@ impl Parser {
 			ls.push(t[ind].clone());
 			ind += 1;
 		}
-		if !self.eval_exp(ls).bool() {
-			return (i, false);
+		if !match self.eval_exp(ls){Ok(x)=>x,Err(e)=>{return Err(e)}}.bool() {
+			return Ok((i, false));
 		}
 		tokens.remove(i-1);
 		self.memory.new_scope();
-		self.eval(t.clone());
+		match self.eval(t.clone()){Err(e)=>{return Err(e)},Ok(_)=>{}};
 		self.memory.rem_scope();
-		return (i, true);
+		return Ok((i, true));
 	}
-	fn eval_else_block (&mut self, i : usize, tokens : &mut Vec<Token>) -> usize {
-		let t : Vec<Token> = self.derefb(&tokens[i]).list.as_ref().unwrap().clone();
+	fn eval_else_block (&mut self, i : usize, tokens : &mut Vec<Token>) -> Result<usize, (String, usize, usize)> {
+		let t : Vec<Token> = match self.derefb(&tokens[i]){Ok(x)=>x,Err(e)=>{return Err(e)}}.list.as_ref().unwrap().clone();
 		tokens.remove(i-1);
 		self.memory.new_scope();
-		self.eval(t.clone());
+		match self.eval(t.clone()) {Ok(_)=>{},Err(e)=>{return Err(e)}};
 		self.memory.rem_scope();
-		return i;
+		return Ok(i);
 	}
-	fn helper_obj_inheritance (&mut self, mut obj : Token) -> Token {
-		let props : Vec<Token> = obj.popd(String::from("\"props")).list.unwrap();
+	fn helper_obj_inheritance (&mut self, mut obj : Token) -> Result<Token, (String, usize, usize)> {
+		let props : Vec<Token> = match obj.popd(String::from("\"props")){Ok(x)=>x,Err(e)=>{return Err((e, obj.line, obj.chara))}}.list.unwrap();
 		for prop in props {
-			let r = self.eval_exp(prop.list.as_ref().unwrap().clone());
-			obj.setd(prop.value, r);
+			let r = match self.eval_exp(prop.list.as_ref().unwrap().clone()) {Ok(x)=>x,Err(e)=>{return Err(e)}};
+			match obj.setd(prop.value, r) {Ok(_)=>{},Err(e)=>{return Err((e, obj.line, obj.chara))}};
 		}
-		let inherits : Vec<Token> = obj.popd(String::from("\"class inheritance")).list.unwrap();
+		let inherits : Vec<Token> = match obj.popd(String::from("\"class inheritance")){Ok(x)=>x,Err(e)=>{return Err((e, obj.line, obj.chara))}}.list.unwrap();
 		for item in inherits {
-			let dr : Token = self.derefb(&item);
+			let dr : Token = match self.derefp(&match self.derefb(&item){Ok(x)=>x,Err(e)=>{return Err(e)}}) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 			if dr.cid == UDF {
 				continue;
 			}
@@ -740,14 +743,15 @@ impl Parser {
 				if obj.dict.as_ref().unwrap().contains_key(key) {
 					continue;
 				}
-				obj.setd(key.clone(), val.clone());
+				match obj.setd(key.clone(), val.clone()) {Ok(_)=>{},Err(e)=>{return Err((e, obj.line, obj.chara))}};
 			}
 		}
 		let ptrname = self.memory.get_ptr_name(&(obj.value.clone()+"-super"));
 		self.memory.ptr_alloc_global(&ptrname);
-		let pointer : Token = Token::new_ptr(OBJ, ptrname.clone(), obj.value.clone());
+		let mut pointer : Token = Token::new_ptr(OBJ, ptrname.clone(), obj.value.clone());
+		pointer.meta(obj.line, obj.chara);
 		self.memory.pointer_mem.insert(ptrname, obj);
-		return pointer;
+		return Ok(pointer);
 	}
 	fn ptr_alloc (&mut self, obj : Token) -> Token {
 		let ptrname = self.memory.get_ptr_name(&obj.value);
@@ -756,9 +760,9 @@ impl Parser {
 		self.memory.pointer_mem.insert(ptrname, obj);
 		return pointer;
 	}
-	fn method_call (&mut self, mut i : usize, mut tokens : &mut Vec<Token>, tok : Token, method_name : &str) -> usize {
+	fn method_call (&mut self, mut i : usize, mut tokens : &mut Vec<Token>, tok : Token, method_name : &str) -> Result<usize, (String, usize, usize)> {
 		tokens.remove(i);
-		tokens[i] = self.derefp(&tok).getd(method_name.to_owned());
+		tokens[i] = match match self.derefp(&tok){Ok(x)=>x,Err(e)=>{return Err(e)}}.getd(method_name.to_owned()) {Ok(x)=>x,Err(e)=>{return Err((e, tok.line, tok.chara))}};
 		// println!("{}", tokens[i]);
 		i += 1;
 		tokens.insert(i+1, Token::newsb(SEP, ","));
@@ -767,7 +771,20 @@ impl Parser {
 		self.LOG.log(String::from("method call (") + method_name + ") -> to func");
 		return self.func_call(i, &mut tokens);
 	}
-	fn eval (&mut self, mut tokens : Vec<Token>) -> Token {
+	fn instantiate (&mut self, mut obj : Token) -> Result<Token, (String, usize, usize)> {
+		let mut lst : Vec<String> = Vec::new();
+		for (key, _) in obj.dict.as_ref().unwrap() {
+			if key.starts_with("\"static ") {
+				lst.push(key.clone());
+			}
+		}
+		for prop in lst {
+			obj.popd(prop).unwrap();
+		}
+		return Ok(obj);
+		// return Err((String::from("non implemented feature: \"instantiate\""), obj.line, obj.chara));
+	}
+	fn eval (&mut self, mut tokens : Vec<Token>) -> Result<Token, (String, usize, usize)> {
 		let mut token_index : usize = 0;
 		let mut tokens_length = tokens.len();
 		let mut cflag = false;
@@ -799,10 +816,10 @@ impl Parser {
 					panic!();
 				}
 				if token.value == "print" {
-					token_index = self.printop(token_index, &tokens);
+					token_index = match self.printop(token_index, &tokens) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 				} else if token.value == "log" {
 					print!("{}", DEBUG_BLUE_PROGRAM_LOG);
-					token_index = self.printop(token_index, &tokens);
+					token_index = match self.printop(token_index, &tokens) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 					print!("\x1b[39m");
 				} else if token.value == "return" {
 					let mut lst : Vec<Token> = Vec::new();
@@ -816,7 +833,7 @@ impl Parser {
 						lst.push(tokens[token_index].clone());
 						token_index += 1;
 					}
-					let r = self.eval_exp(lst);
+					let r = match self.eval_exp(lst) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 					return self.derefb(&r);
 				} else if token.value == "dumpscope" {
 					token_index = self.dumpscope(token_index, &tokens);
@@ -850,17 +867,17 @@ impl Parser {
 				} else if token.value == "dumptoks" {
 					printlst::<Token>(&self.__filter(&tokens));
 				} else if token.value == "dumplc" {
-					println!("{}{}\x1b[0m", INTERPRETER_DEBUG_BRIGHTPINK, self.derefp(&self.derefb(&tokens[token_index+1])));
-					printlst::<Token>(&self.derefp(&self.derefb(&tokens[token_index+1])).list.as_ref().unwrap());
+					println!("{}{}\x1b[0m", INTERPRETER_DEBUG_BRIGHTPINK, match self.derefp(&match self.derefb(&tokens[token_index+1]){Ok(x)=>x,Err(e)=>{return Err(e)}}){Ok(x)=>x,Err(e)=>{return Err(e)}});
+					printlst::<Token>(&match self.derefp(&match self.derefb(&tokens[token_index+1]){Ok(x)=>x,Err(e)=>{return Err(e)}}){Ok(x)=>x,Err(e)=>{return Err(e)}}.list.as_ref().unwrap());
 					token_index += 1;
 				} else if token.value == "dumpflags" {
 					self.memory.dump_flags();
 				} else if token.value == "break" {
-					return Token::newsb(SIG, "BREAK");
+					return Ok(Token::newsb(SIG, "BREAK"));
 				} else if token.value == "continue" {
-					return Token::newsb(SIG, "CONTINUE");
+					return Ok(Token::newsb(SIG, "CONTINUE"));
 				} else if token.value == "linkup" {
-					self.eval(read_in_file(&tokens[token_index+1].value));
+					match self.eval(read_in_file(&tokens[token_index+1].value)) {Ok(_)=>{},Err(e)=>{return Err(e)}};
 					token_index += 1;
 				} else if token.value == "module" {
 					let vname = &tokens[token_index+1].value;
@@ -878,13 +895,13 @@ impl Parser {
 					if tokens[token_index+1].cid == OBJ {
 						let val = &tokens[token_index+1].value.clone();
 						self.memory.flag_var(val.clone(), 3u8);
-						let ret = self.helper_obj_inheritance(tokens.remove(token_index+1));
+						let ret = match self.helper_obj_inheritance(tokens.remove(token_index+1)) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 						self.memory.set(val, ret);
 						self.memory.set_protection(val, 1u8);
 					}
 				} else if token.value == "dumpobj" {
 					println!("\n");
-					let d = self.derefp(&self.derefb(&tokens[token_index+1]));
+					let d = match self.derefp(&match self.derefb(&tokens[token_index+1]){Ok(x)=>x,Err(e)=>{return Err(e)}}) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 					println!("{}DUMPING OBJECT PROPERTIES:\x1b[0m {}", INTERPRETER_DEBUG_BRIGHTPINK, d.value);
 					println!("");
 					for (k, j) in d.dict.as_ref().unwrap() {
@@ -892,10 +909,13 @@ impl Parser {
 					}
 					println!("\n");
 				} else if token.value == "create" {
-					let tok = self.derefb(&tokens[token_index+1]);
+					let tok = match self.derefb(&tokens[token_index+1]) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 					if tok.cid == OBJ {
-						if self.derefp(&tok).hasd("__init__") {
-							token_index = self.method_call(token_index, &mut tokens, tok, "__init__");
+						let mut obj : Token = match self.derefp(&tok) {Ok(x)=>x,Err(e)=>{return Err(e)}};
+						if match obj.hasd("__init__") {Ok(x)=>x,Err(e)=>{return Err((e, tok.line, tok.chara))}} {
+							obj = match self.instantiate(obj) {Ok(x)=>x,Err(e)=>{return Err(e)}};
+							obj = self.ptr_alloc(obj);
+							token_index = match self.method_call(token_index, &mut tokens, obj, "__init__") {Ok(x)=>x,Err(e)=>{return Err(e)}};
 							tokens_length = tokens.len();
 						}
 					}
@@ -922,17 +942,17 @@ impl Parser {
 						lst.push(tokens[ind].clone());
 						ind += 1;
 					}
-					r = self.eval_exp(lst);
+					r = match self.eval_exp(lst) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 					if subscript {
 						let name = tokens[imt].value.clone();
 						let is_ref = tokens[imt].id == REF;
-						tokens[imt] = self.derefb(&tokens[imt]);
+						tokens[imt] = match self.derefb(&tokens[imt]) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 						if tokens[imt].cid == LST {
-							let index = self.eval_exp(tokens[imt+1].list.as_ref().unwrap().clone()).value.parse::<usize>().unwrap();
-							tokens[imt].set(index, r);
+							let index = match self.eval_exp(tokens[imt+1].list.as_ref().unwrap().clone()){Ok(x)=>x,Err(e)=>{return Err(e)}}.value.parse::<usize>().unwrap();
+							match tokens[imt].set(index, r) {Ok(_)=>{},Err(e)=>{return Err((e, tokens[imt].line, tokens[imt].chara))}};
 						} else {
-							let index = self.eval_exp(tokens[imt+1].list.as_ref().unwrap().clone()).value;
-							tokens[imt].setd(index, r);
+							let index = match self.eval_exp(tokens[imt+1].list.as_ref().unwrap().clone()){Ok(x)=>x,Err(e)=>{return Err(e)}}.value;
+							match tokens[imt].setd(index, r) {Ok(_)=>{},Err(e)=>{return Err((e, tokens[imt].line, tokens[imt].chara))}};
 						}
 						if is_ref {
 							self.memory.set(&name, tokens[imt].clone());
@@ -955,19 +975,19 @@ impl Parser {
 						lst.push(tokens[ind].clone());
 						ind += 1;
 					}
-					v2 = self.eval_exp(lst).value;
+					v2 = match self.eval_exp(lst){Ok(x)=>x,Err(e)=>{return Err(e)}}.value;
 					if subscript {
 						let name = tokens[imt].value.clone();
 						let is_ref = tokens[imt].id == REF;
-						tokens[imt] = self.derefb(&tokens[imt]);
+						tokens[imt] = match self.derefb(&tokens[imt]) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 						if tokens[imt].cid == LST {
-							let index = self.eval_exp(tokens[imt+1].list.as_ref().unwrap().clone()).value.parse::<usize>().unwrap();
-							let va = tokens[imt].get(index).value;
-							tokens[imt].set(index, self.assignment_operation(&operand, va, v2));
+							let index = match self.eval_exp(tokens[imt+1].list.as_ref().unwrap().clone()){Ok(x)=>x,Err(e)=>{return Err(e)}}.value.parse::<usize>().unwrap();
+							let va = match tokens[imt].get(index){Ok(x)=>x,Err(e)=>{return Err((e, tokens[imt].line, tokens[imt].chara))}}.value;
+							match tokens[imt].set(index, self.assignment_operation(&operand, va, v2)) {Ok(_)=>{},Err(e)=>{return Err((e, tokens[imt].line, tokens[imt].chara))}};
 						} else {
-							let index = self.eval_exp(tokens[imt+1].list.as_ref().unwrap().clone()).value;
-							let va = tokens[imt].getd(index.clone()).value;
-							tokens[imt].setd(index, self.assignment_operation(&operand, va, v2));
+							let index = match self.eval_exp(tokens[imt+1].list.as_ref().unwrap().clone()){Ok(x)=>x,Err(e)=>{return Err(e)}}.value;
+							let va = match tokens[imt].getd(index.clone()){Ok(x)=>x,Err(e)=>{return Err((e, tokens[imt].line, tokens[imt].chara))}}.value;
+							match tokens[imt].setd(index, self.assignment_operation(&operand, va, v2)) {Ok(_)=>{},Err(e)=>{return Err((e, tokens[imt].line, tokens[imt].chara))}};
 						}
 						if is_ref {
 							self.memory.set(&name, tokens[imt].clone());
@@ -982,16 +1002,16 @@ impl Parser {
 			} else if token.cid == FUN {
 				self.memory.set(&token.value, token.clone());
 			// handle function calls
-			} else if token_index > 0 && token.id == PAR && token.value == "(" && self.deref(tokens[token_index-1].clone()).cid == FUN {
-				token_index = self.func_call(token_index, &mut tokens);
+			} else if token_index > 0 && token.id == PAR && token.value == "(" && match self.deref(tokens[token_index-1].clone()){Ok(x)=>x,Err(e)=>{return Err(e)}}.cid == FUN {
+				token_index = match self.func_call(token_index, &mut tokens) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 				tokens_length = tokens.len();
 			// handle object properties and methods
 			} else if token.id == DOT && token_index < tokens_length-1 && tokens[token_index+1].id == REF {
 				// println!("UNCHECKED BINDING: {}", tokens[token_index-1]);
-				if self.BINDINGS.check_valid(&self.modules, &self.memory.pointer_mem, &self.derefb(&tokens[token_index-1]), &tokens[token_index+1].value) {
+				if self.BINDINGS.check_valid(&self.modules, &self.memory.pointer_mem, &match self.derefb(&tokens[token_index-1]){Ok(x)=>x,Err(e)=>{return Err(e)}}, &tokens[token_index+1].value) {
 					// println!("CONFIRMED BINDING");
 					let oi : usize = token_index-1;
-					let x : (usize, Token, Vec<Token>) = self.execute(tokens.clone(), token_index);
+					let x : (usize, Token, Vec<Token>) = match self.execute(tokens.clone(), token_index) {Ok(r)=>r,Err(e)=>{return Err(e)}};
 					tokens = x.2;
 					token_index = x.0;
 					tokens[token_index-1] = x.1;
@@ -1009,34 +1029,34 @@ impl Parser {
 				tokens_length = tokens.len();
 			} else if token.id == CTL {
 				if token.value == "forloop" {
-					token_index = self.eval_for_loop(token_index, &mut tokens);
+					token_index = match self.eval_for_loop(token_index, &mut tokens) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 					tokens_length = tokens.len();
 				} else if token.value == "ifblock" {
-					let x : (usize, bool) = self.eval_if_block(token_index, &mut tokens);
+					let x : (usize, bool) = match self.eval_if_block(token_index, &mut tokens) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 					token_index = x.0;
 					cflag = x.1;
 					tokens_length = tokens.len();
 				} else if token.value == "elseblock" {
 					if !cflag {
-						token_index = self.eval_else_block(token_index, &mut tokens);
+						token_index = match self.eval_else_block(token_index, &mut tokens) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 						tokens_length = tokens.len();
 					}
 				} else if token.value == "whileloop" {
-					token_index = self.eval_while_loop(token_index, &mut tokens);
+					token_index = match self.eval_while_loop(token_index, &mut tokens) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 					tokens_length = tokens.len();
 				}
 			}
 			token_index += 1;
 		}
-		return self.UDFTOK.clone();
+		return Ok(self.UDFTOK.clone());
 	}
-	fn get_value (&mut self, tokens : &Vec<Token>, mut i : usize) -> (usize, Token) {
+	fn get_value (&mut self, tokens : &Vec<Token>, mut i : usize) -> Result<(usize, Token), (String, usize, usize)> {
 		let mut toks : Vec<Token> = Vec::new();
 		let l = tokens.len();
 		let mut depth : u16 = 0;
 		loop {
 			if i >= l {
-				return (i-1, self.__fault());
+				return Ok((i-1, self.__fault()));
 			}
 			if tokens[i].cid == PAR {
 				if tokens[i].value == "(" {
@@ -1057,7 +1077,7 @@ impl Parser {
 			}
 			i += 1;
 		}
-		return (i+1, self.eval_exp(toks));
+		return Ok((i+1, match self.eval_exp(toks) {Ok(x)=>x,Err(e)=>{return Err(e)}}));
 	}
 	fn exec_builtin (&mut self, name : String, args : Vec<Token>) -> Token {
 		lazy_static! {
@@ -1103,7 +1123,7 @@ impl Parser {
 		}
 		return self.__fault();
 	}
-	fn binding_execution (&mut self, i : usize, tokens : &mut Vec<Token>) -> usize {
+	fn binding_execution (&mut self, i : usize, tokens : &mut Vec<Token>) -> Result<usize, (String, usize, usize)> {
 		let name = tokens[i].value.clone();
 		let mut depth = 0;
 		let mut atoks : Vec<Token> = Vec::new();
@@ -1151,22 +1171,26 @@ impl Parser {
 				atoksn.push(atoks[o].clone());
 				o += 1;
 			}
-			args.push(self.eval_exp(atoksn));
+			args.push(match self.eval_exp(atoksn) {Ok(x)=>x,Err(e)=>{return Err(e)}});
 			j += 1;
 		}
 		tokens[i] = self.exec_builtin(name, args);
-		return i;
+		return Ok(i);
 	}
-	fn execute (&mut self, mut tokens : Vec<Token>, mut i : usize) -> (usize, Token, Vec<Token>) {
+	fn execute (&mut self, mut tokens : Vec<Token>, mut i : usize) -> Result<(usize, Token, Vec<Token>), (String, usize, usize)> {
 		lazy_static! {
 			static ref ALPHA_RE : Regex = Regex::new(ALPHA_RE_PAT).unwrap();
 			static ref DIGIT_RE : Regex = Regex::new(DIGIT_RE_PAT).unwrap();
 		}
-        let target : &str = &tokens[i+1].value.clone();
+        let mut target : &str = &tokens[i+1].value.clone();
 		let is_ref : bool = tokens[i-1].id == REF;
 		let ov : &str = &tokens[i-1].value.clone();
         let mut t : Token = match is_ref {false=>tokens[i-1].clone(),true=>self.memory.get(&tokens[i-1].value)};
 		let is_ptr : bool = t.id == PTR;
+		let tva : String = String::from("\"static ")+target;
+		if is_ptr {
+			target = match t.value.find("-super").is_some() {true=>&tva,_=>target};
+		}
 		t = match is_ptr {true=>self.memory.pointer_mem.get(&t.value).unwrap().clone(),false=>t};
 		// println!("EXEC DATA: {}, {}, {}", is_ref, t, target);
         if t.data_type == DT_STR {
@@ -1174,11 +1198,11 @@ impl Parser {
             if btype == &"method" {
 				let mut ret : Token = self.__fault();
 				if target == "is_alpha" {
-					let x : (usize, Token) = self.get_value(&tokens, i);
+					let x : (usize, Token) = match self.get_value(&tokens, i) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 					i = x.0 - 2;
 					ret = Token::new(LIT, ALPHA_RE.is_match(&t.value[1..t.value.len()-1]).to_string(), BASE_TOKEN);
 				} else if target == "is_digit" {
-					let x : (usize, Token) = self.get_value(&tokens, i);
+					let x : (usize, Token) = match self.get_value(&tokens, i) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 					i = x.0 - 2;
 					ret = Token::new(LIT, DIGIT_RE.is_match(&t.value[1..t.value.len()-1]).to_string(), BASE_TOKEN);
 				}
@@ -1187,10 +1211,10 @@ impl Parser {
 				} else {
 					tokens[i-1] = t;
 				}
-                return (i, ret, tokens);
+                return Ok((i, ret, tokens));
             } else if btype == &"property" {
                 if target == "length" {
-                    return (i, Token::new(LIT, (t.value.len()-2).to_string(), BASE_TOKEN), tokens);
+                    return Ok((i, Token::new(LIT, (t.value.len()-2).to_string(), BASE_TOKEN), tokens));
                 }
             }
         }
@@ -1199,43 +1223,39 @@ impl Parser {
             if btype == &"method" {
 				let mut ret : Token = self.__fault();
                 if target == "push" {
-                    let x : (usize, Token) = self.get_value(&tokens, i);
+                    let x : (usize, Token) = match self.get_value(&tokens, i) {Ok(x)=>x,Err(e)=>{return Err(e)}};
                     i = x.0 - 2;
-                    t.push(x.1);
+                    t.push(x.1).unwrap();
                 } else if target == "pop" {
-					let x : (usize, Token) = self.get_value(&tokens, i);
+					let x : (usize, Token) = match self.get_value(&tokens, i) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 					i = x.0 - 2;
-					ret = t.pop();
+					ret = match t.pop() {Ok(x)=>x,Err(e)=>{return Err((e, t.line, t.chara))}};
 				} else if target == "remove" {
-					let x : (usize, Token) = self.get_value(&tokens, i);
+					let x : (usize, Token) = match self.get_value(&tokens, i) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 					i = x.0 - 2;
-					ret = t.popitem(x.1.value.parse::<usize>().unwrap());
-				} else if target == "get" {
-					let x : (usize, Token) = self.get_value(&tokens, i);
-					i = x.0 - 2;
-					ret = t.list.as_ref().unwrap()[x.1.value.parse::<usize>().unwrap()].clone();
+					ret = match t.popitem(x.1.value.parse::<usize>().unwrap()) {Ok(x)=>x,Err(e)=>{return Err((e, t.line, t.chara))}};
 				}
 				if is_ref {
 					self.memory.set(ov, t);
 				} else {
 					tokens[i-1] = t;
 				}
-                return (i, ret, tokens);
+                return Ok((i, ret, tokens));
             } else if btype == &"property" {
                 if target == "length" {
-                    return (i, Token::new(LIT, t.length.to_string(), BASE_TOKEN), tokens);
+                    return Ok((i, Token::new(LIT, t.length.to_string(), BASE_TOKEN), tokens));
                 }
             }
         }
 		if t.data_type == DT_NUM {
 			let btype : &&str = self.BINDINGS.get_type(DT_NUM, target);
 			if btype == &"property" {
-				return (i, self.__fault(), tokens);
+				return Ok((i, self.__fault(), tokens));
 			} else if btype == &"method" {
 				if target == "to_string" {
-					let x : (usize, Token) = self.get_value(&tokens, i);
+					let x : (usize, Token) = match self.get_value(&tokens, i) {Ok(x)=>x,Err(e)=>{return Err(e)}};
 					i = x.0 - 2;
-					return (i, Token::new(LIT, String::from(r#"""#)+&t.value+r#"""#, BASE_TOKEN), tokens);
+					return Ok((i, Token::new(LIT, String::from(r#"""#)+&t.value+r#"""#, BASE_TOKEN), tokens));
 				}
 			}
 		}
@@ -1244,17 +1264,17 @@ impl Parser {
 		}
 		if t.data_type == DT_OBJ {
 			// println!("OBJECT");
-			let r : Token = t.getd(target.to_string()).clone();
+			let r : Token = match t.getd(target.to_string()){Ok(x)=>x,Err(e)=>{return Err((e, t.line, t.chara))}}.clone();
 			if r.cid == FUN {
 				// todo
 			}
-			return (i, r, tokens);
+			return Ok((i, r, tokens));
 		} else if t.data_type == DT_MOD {
 			let m = &self.modules.get(&t.value).unwrap().memory;
-			let r : Token = match m.inter_flag_get(target) != 1u8 {true=>m.get(target).clone(),_=>self.__fault()};
-			return (i, r, tokens);
+			let r : Token = match m.inter_flag_get(target) != 1u8 {true=>m.get(target).clone(),_=>{return Err((String::from("attempt to get private variable from module"), t.line, t.chara))}};
+			return Ok((i, r, tokens));
 		}
-        return (i, self.__fault(), tokens);
+        return Ok((i, self.__fault(), tokens));
     }
 	fn __builtin (&mut self, doc : &str, map : &HashMap<&str, u8>) -> () {
 		if doc.len() < 1 {
@@ -1286,7 +1306,7 @@ impl Parser {
 			if i >= l {
 				break;
 			}
-			bi_tok.push(Token::newsb(map.get(&tok_strs[i]).unwrap().clone(), tok_strs[i+1]));
+			bi_tok.push(Token::newsb(map.get(&tok_strs[i]).unwrap().clone(), tok_strs[i+1])).unwrap();
 			i += 2;
 		}
 		self.memory.set(name, bi_tok);
@@ -1311,24 +1331,35 @@ impl Parser {
 			self.__builtin(doc, &map);
 		}
 	}
+	fn __sysobj (&mut self, name : &str, token : Token) -> () {
+		let ptr_name : String = self.memory.get_ptr_name(&(name.to_owned()+"-super"));
+		self.memory.ptr_alloc_global(&ptr_name);
+		self.memory.set(name, Token::new_ptr(token.id, ptr_name.clone(), token.value.clone()));
+		self.memory.set_protection(name, 1u8);
+		self.memory.pointer_mem.insert(ptr_name, token);
+	}
 	pub fn __init (&mut self) -> () {
 		let mut systok : Token = Token::news(OBJ, "SYS", DICT_TOKEN);
-		systok.setd(String::from("lime"), Token::newsb(LIT, r#""\x1b[38;2;0;255;0m""#));
-		systok.setd(String::from("red"), Token::newsb(LIT, r#""\x1b[38;2;255;0;0m""#));
-		systok.setd(String::from("blue"), Token::newsb(LIT, r#""\x1b[38;2;0;0;255m""#));
-		systok.setd(String::from("cyan"), Token::newsb(LIT, r#""\x1b[38;2;0;255;255m""#));
-		systok.setd(String::from("yellow"), Token::newsb(LIT, r#""\x1b[38;2;255;255;0m""#));
-		systok.setd(String::from("violet"), Token::newsb(LIT, r#""\x1b[38;2;255;0;255m""#));
-		systok.setd(String::from("default"), Token::newsb(LIT, r#""\x1b[39m""#));
-		self.memory.set("System", systok);
-		self.memory.set_protection("System", 1u8);
+		systok.setd(String::from("\"static lime"), Token::newsb(LIT, r#""\x1b[38;2;0;255;0m""#)).unwrap();
+		systok.setd(String::from("\"static red"), Token::newsb(LIT, r#""\x1b[38;2;255;0;0m""#)).unwrap();
+		systok.setd(String::from("\"static blue"), Token::newsb(LIT, r#""\x1b[38;2;0;0;255m""#)).unwrap();
+		systok.setd(String::from("\"static cyan"), Token::newsb(LIT, r#""\x1b[38;2;0;255;255m""#)).unwrap();
+		systok.setd(String::from("\"static yellow"), Token::newsb(LIT, r#""\x1b[38;2;255;255;0m""#)).unwrap();
+		systok.setd(String::from("\"static violet"), Token::newsb(LIT, r#""\x1b[38;2;255;0;255m""#)).unwrap();
+		systok.setd(String::from("\"static default"), Token::newsb(LIT, r#""\x1b[39m""#)).unwrap();
+		self.__sysobj("System", systok);
 		self.__prelude();
 	}
 	pub fn run (&mut self) -> u8 {
 		self.memory.new_scope();
-		self.eval(self.tokens.clone());
+		let status : Result<Token, (String, usize, usize)> = self.eval(self.tokens.clone());
 		if self.meta_dump_log {
 			self.LOG.dump();
+		}
+		if status.is_err() {
+			let em : (String, usize, usize) = status.unwrap_err();
+			println!("ERROR \"{}\" at line {}, character {}", em.0, em.1, em.2);
+			return 1;
 		}
 		return 0;
 	}

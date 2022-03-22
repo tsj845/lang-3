@@ -1,3 +1,5 @@
+private priv = "private";
+
 object_var = 10;
 
 func xyz (uncn) {

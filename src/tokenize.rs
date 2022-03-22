@@ -2,7 +2,7 @@ use regex::Regex;
 use lazy_static::lazy_static;
 
 use crate::statics::*;
-use crate::static_colors::*;
+// use crate::static_colors::*;
 
 fn get_complement_surround (given : char) -> char {
 	match given {
@@ -143,7 +143,7 @@ fn process_grp (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 				break;
 			}
 			if lst[c].id == SEP {
-				f.setd(lst[c-1].value.clone(), lst[c+1].clone());
+				f.setd(lst[c-1].value.clone(), lst[c+1].clone()).unwrap();
 				c += 1;
 			}
 			c += 1;
@@ -175,14 +175,14 @@ fn process_grp (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 			}
 		}
 		lst = preprocess(lst);
-		print!("{}", INTERPRETER_DEBUG_ORANGE);
-		printlst(&lst);
-		print!("\x1b[0m");
+		// print!("{}", INTERPRETER_DEBUG_ORANGE);
+		// printlst(&lst);
+		// print!("\x1b[0m");
 		let mut f : Token = Token::news(LST, "LST", LIST_TOKEN);
 		f.meta(linev, charav);
 		for t in lst {
 			if t.id != SEP {
-				f.push(t.clone());
+				f.push(t.clone()).unwrap();
 			}
 		}
 		return (i, tokens, f);
@@ -206,10 +206,10 @@ fn process_fun (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, Token
 		}
 		if tokens[i].id == PAR && tokens[i].value == ")" {
 			tokens.remove(i);
-			f.push(Token::news(SEP, "*", BASE_TOKEN));
+			f.push(Token::news(SEP, "*", BASE_TOKEN)).unwrap();
 			break;
 		}
-		f.push(tokens.remove(i));
+		f.push(tokens.remove(i)).unwrap();
 	}
 	loop {
 		if i >= tokens.len() {
@@ -282,21 +282,21 @@ fn process_forloop (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, T
 		}
 		if tokens[i].id == GRP && tokens[i].value == "{" {
 			tokens.remove(i);
-			f.push(Token::news(SEP, "*", BASE_TOKEN));
+			f.push(Token::news(SEP, "*", BASE_TOKEN)).unwrap();
 			break;
 		}
 		if tokens[i].id == KEY && tokens[i].value == "in" {
 			tokens.remove(i);
-			f.push(Token::news(SEP, "*", BASE_TOKEN));
+			f.push(Token::news(SEP, "*", BASE_TOKEN)).unwrap();
 			continue;
 		}
 		if tokens[i].id == DOT && tokens[i+1].id == DOT {
 			tokens.remove(i);
 			tokens.remove(i);
-			f.push(Token::news(SEP, "..", BASE_TOKEN));
+			f.push(Token::news(SEP, "..", BASE_TOKEN)).unwrap();
 			continue;
 		}
-		f.push(tokens.remove(i));
+		f.push(tokens.remove(i)).unwrap();
 	}
 	loop {
 		if i >= tokens.len() {
@@ -335,10 +335,10 @@ fn process_whileloop (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>,
 		}
 		if tokens[i].id == GRP && tokens[i].value == "{" {
 			tokens.remove(i);
-			f.push(Token::news(SEP, "*", BASE_TOKEN));
+			f.push(Token::news(SEP, "*", BASE_TOKEN)).unwrap();
 			break;
 		}
-		f.push(tokens.remove(i));
+		f.push(tokens.remove(i)).unwrap();
 	}
 	loop {
 		if i >= tokens.len() {
@@ -377,10 +377,10 @@ fn process_ifblock (i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>, T
 		}
 		if tokens[i].id == GRP && tokens[i].value == "{" {
 			tokens.remove(i);
-			f.push(Token::news(SEP, "*", BASE_TOKEN));
+			f.push(Token::news(SEP, "*", BASE_TOKEN)).unwrap();
 			break;
 		}
-		f.push(tokens.remove(i));
+		f.push(tokens.remove(i)).unwrap();
 	}
 	loop {
 		if i >= tokens.len() {
@@ -458,11 +458,11 @@ fn process_class (mut i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>,
 			if tokens[i].id == SEP {
 				tokens.remove(i);
 			}
-			inheritance.push(tokens.remove(i));
+			inheritance.push(tokens.remove(i)).unwrap();
 		}
 	}
 	// set inheritance property
-	f.setd(String::from("\"class inheritance"), inheritance);
+	f.setd(String::from("\"class inheritance"), inheritance).unwrap();
 	let mut depth : usize = 0;
 	// all tokens within class body
 	let mut lst : Vec<Token> = Vec::new();
@@ -489,9 +489,13 @@ fn process_class (mut i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>,
 	let mut ind : usize = 0;
 	let mut l = lst.len();
 	let mut props : Token = Token::news(LST, "props", LIST_TOKEN);
+	let mut static_flag : bool = false;
 	loop {
 		if ind >= l {
 			break;
+		}
+		if lst[ind].matchup(KEY, "static") {
+			static_flag = true;
 		}
 		if lst[ind].matchup(KEY, "method") {
 			let x : (usize, Vec<Token>, Token) = process_fun(ind, lst);
@@ -499,6 +503,10 @@ fn process_class (mut i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>,
 			lst = x.1;
 			l = lst.len();
 			lst.insert(ind, x.2);
+			if static_flag {
+				lst[ind].value = String::from("\"static ") + &lst[ind].value;
+				static_flag = false;
+			}
 		}
 		if lst[ind].matchup(KEY, "property") {
 			lst.remove(ind);
@@ -512,22 +520,26 @@ fn process_class (mut i : usize, mut tokens : Vec<Token>) -> (usize, Vec<Token>,
 				if lst[ind].id == NLN {
 					break;
 				}
-				ls.push(lst.remove(ind));
+				ls.push(lst.remove(ind)).unwrap();
 			}
-			props.push(ls);
+			if static_flag {
+				ls.value = String::from("\"static ") + &ls.value;
+				static_flag = false;
+			}
+			props.push(ls).unwrap();
 			l = lst.len();
 		}
 		ind += 1;
 	}
 	ind = 0;
 	l = lst.len();
-	f.setd(String::from("\"props"), props);
+	f.setd(String::from("\"props"), props).unwrap();
 	loop {
 		if ind >= l {
 			break;
 		}
 		if lst[ind].id == FUN {
-			f.setd(lst[ind].value.clone(), lst.remove(ind));
+			f.setd(lst[ind].value.clone(), lst.remove(ind)).unwrap();
 			l = lst.len();
 			continue;
 		}

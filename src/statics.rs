@@ -74,7 +74,7 @@ pub const TOKEN_ARRAY : [&str; 26] = ["NUL", "FUN", "REF", "LIT", "IDX", "KEY", 
 pub const FILE_EXT : &str = ".ihl";
 
 // program keywords
-pub const KEYWORDS : [&str; 33] = ["gloabl", "local", "unique", "parent", "func", "print", "dumpscope", "rm", "garbage", "log", "return", "dumptoks", "dumplc", "dumpflags", "in", "for", "HALT", "break", "continue", "while", "if", "else", "linkup", "module", "readonly", "private", "class", "property", "method", "inheriting", "from", "dumpobj", "create"];
+pub const KEYWORDS : [&str; 34] = ["gloabl", "local", "unique", "parent", "func", "print", "dumpscope", "rm", "garbage", "log", "return", "dumptoks", "dumplc", "dumpflags", "in", "for", "HALT", "break", "continue", "while", "if", "else", "linkup", "module", "readonly", "private", "class", "property", "method", "inheriting", "from", "dumpobj", "create", "static"];
 
 // tokenization regex patterns
 pub const WORD_RE_PAT : &str = r"[[:alpha:]]+[[:word:]]*";
@@ -86,10 +86,10 @@ pub const LOGIC_RE_PAT : &str = r"[!^%|&><]|(<=|>=)";
 pub const PAREN_RE_PAT : &str = r"[()]";
 pub const GROUP_RE_PAT : &str = r"$?[{}\[\]]";
 pub const SEPER_RE_PAT : &str = r"[:,]";
-pub const KEYWD_RE_PAT : &str = r"\b(global|local|unique|parent|func|print|dumpscope|rm|garbage|log|return|dumptoks|dumplc|dumpflags|in|for|HALT|break|continue|while|if|else|linkup|module|readonly|private|class|property|method|inheriting|from|dumpobj|create)\b";
+pub const KEYWD_RE_PAT : &str = r"\b(global|local|unique|parent|func|print|dumpscope|rm|garbage|log|return|dumptoks|dumplc|dumpflags|in|for|HALT|break|continue|while|if|else|linkup|module|readonly|private|class|property|method|inheriting|from|dumpobj|create|static)\b";
 pub const ASIGN_RE_PAT : &str = r"=";
 pub const MATHM_RE_PAT : &str = r"[-+*/]";
-pub const TOKEN_STR_RE_PAT : &str = r#"".*""#;
+pub const TOKEN_STR_RE_PAT : &str = r#"^".*"$"#;
 pub const TOKEN_BIN_NUM_RE_PAT : &str = r"^0b[01]+";
 pub const TOKEN_HEX_NUM_RE_PAT : &str = r"^0x[0-9a-f]+";
 pub const TOKEN_DEC_NUM_RE_PAT : &str = r"^[0-9]+(\.[0-9]+)?";
@@ -283,98 +283,103 @@ impl Token {
 
 // dict methods
 impl Token {
-	pub fn hasd (&self, key : &str) -> bool {
+	pub fn hasd (&self, key : &str) -> Result<bool, String> {
 		if self.tt != DICT_TOKEN {
-			panic!("invalid operation");
+			return Err("invalid operation".to_owned());
 		}
-		return self.dict.as_ref().unwrap().contains_key(key);
+		return Ok(self.dict.as_ref().unwrap().contains_key(key));
 	}
-	pub fn _check_vkey_dict (&self, key : &str) {
+	pub fn _check_vkey_dict (&self, key : &str) -> Result<(), String> {
 		if self.tt != DICT_TOKEN {
-			panic!("invalid operation");
+			return Err(String::from("invalid operation"));
 		}
 		if !self.dict.as_ref().unwrap().contains_key(key) {
-			panic!("invalid key");
+			return Err(String::from("invalid key ") + key);
 		}
+		return Ok(());
 	}
-	pub fn getd (&self, key : String) -> Token {
+	pub fn getd (&self, key : String) -> Result<Token, String> {
 		if self.tt != DICT_TOKEN {
-			panic!("invalid operation");
+			return Err("invalid operation".to_owned());
 		}
-		self._check_vkey_dict(&key);
-		return self.dict.as_ref().unwrap().get(&key).unwrap().clone();
+		match self._check_vkey_dict(&key) {Ok(_)=>{},Err(e)=>{return Err(e)}};
+		return Ok(self.dict.as_ref().unwrap().get(&key).unwrap().clone());
 	}
-	pub fn setd (&mut self, key : String, value : Token) {
+	pub fn setd (&mut self, key : String, value : Token) -> Result<(), String> {
 		if self.tt != DICT_TOKEN {
-			panic!("invalid operation");
+			return Err("invalid operation".to_owned());
 		}
 		self.dict.as_mut().unwrap().insert(key, value);
+		return Ok(());
 	}
-	pub fn popd (&mut self, key : String) -> Token {
+	pub fn popd (&mut self, key : String) -> Result<Token, String> {
 		if self.tt != DICT_TOKEN {
-			panic!("invalid operation");
+			return Err("invalid operation".to_owned());
 		}
-		self._check_vkey_dict(&key);
-		return self.dict.as_mut().unwrap().remove(&key).unwrap();
+		match self._check_vkey_dict(&key) {Ok(_)=>{},Err(e)=>{return Err(e)}};
+		return Ok(self.dict.as_mut().unwrap().remove(&key).unwrap());
 	}
 }
 
 // list methods
 impl Token {
-	pub fn get (&self, key : usize) -> Token {
+	pub fn get (&self, key : usize) -> Result<Token, String> {
 		if self.tt != LIST_TOKEN {
-			panic!("invalid operation");
+			return Err("invalid operation".to_owned());
 		}
 		if self.length <= key {
-			panic!("index out of range");
+			return Err("index out of range".to_owned());
 		}
-		return self.list.as_ref().unwrap()[key].clone();
+		return Ok(self.list.as_ref().unwrap()[key].clone());
 	}
-	pub fn set (&mut self, key : usize, value : Token) {
+	pub fn set (&mut self, key : usize, value : Token) -> Result<(), String> {
 		if self.tt != LIST_TOKEN {
-			panic!("invalid operation");
+			return Err("invalid operation".to_owned());
 		}
 		if self.length <= key {
-			panic!("index out of range");
+			return Err("index out of range".to_owned());
 		}
 		self.list.as_mut().unwrap()[key] = value;
+		return Ok(());
 	}
-	pub fn push (&mut self, v : Token) {
+	pub fn push (&mut self, v : Token) -> Result<(), String> {
 		if self.tt != LIST_TOKEN {
-			panic!("invalid operation");
+			return Err("invalid operation".to_owned());
 		}
 		self.length += 1;
 		self.list.as_mut().unwrap().push(v);
+		return Ok(());
 	}
-	pub fn pop (&mut self) -> Token {
+	pub fn pop (&mut self) -> Result<Token, String> {
 		if self.tt != LIST_TOKEN {
-			panic!("invalid operation");
+			return Err("invalid operation".to_owned());
 		}
 		if self.length == 0 {
-			panic!("can't remove from empty list");
+			return Err("can't remove from empty list".to_owned());
 		}
 		self.length -= 1;
-		return self.list.as_mut().unwrap().pop().unwrap();
+		return Ok(self.list.as_mut().unwrap().pop().unwrap());
 	}
-	pub fn popitem (&mut self, key : usize) -> Token {
+	pub fn popitem (&mut self, key : usize) -> Result<Token, String> {
 		if self.tt != LIST_TOKEN {
-			panic!("invalid operation");
+			return Err("invalid operation".to_owned());
 		}
 		if self.length <= key {
-			panic!("index out of range");
+			return Err("index out of range".to_owned());
 		}
 		self.length -= 1;
-		return self.list.as_mut().unwrap().remove(key);
+		return Ok(self.list.as_mut().unwrap().remove(key));
 	}
-	pub fn extend (&mut self, v : Vec<Token>) {
+	pub fn extend (&mut self, v : Vec<Token>) -> Result<(), String> {
 		if self.tt != LIST_TOKEN {
-			panic!("invalid operation");
+			return Err("invalid operation".to_owned());
 		}
 		let l = self.list.as_mut().unwrap();
 		for token in v {
 			self.length += 1;
 			l.push(token);
 		}
+		return Ok(());
 	}
 }
 

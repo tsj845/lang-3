@@ -14,7 +14,7 @@ pub struct Bindings<'a> {
 
 impl Bindings<'_> {
     pub fn new () -> Bindings<'static> {
-        let lists : [[&str; 2]; 5] = [["method", "push"], ["method", "pop"], ["method", "remove"], ["property", "length"], ["method", "get"]];
+        let lists : [[&str; 2]; 4] = [["method", "push"], ["method", "pop"], ["method", "remove"], ["property", "length"]];
         let dicts : [[&str; 2]; 0] = [];
         let strings : [[&str; 2]; 3] = [["property", "length"], ["method", "is_alpha"], ["method", "is_digit"]];
         let numbers : [[&str; 2]; 1] = [["method", "to_string"]];
@@ -82,7 +82,12 @@ impl Bindings<'_> {
 	pub fn check_valid (&self, mods : &HashMap<String, Parser>, pointers : &HashMap<String, Token>, t : &Token, target : &str) -> bool {
         let is_ptr : bool = t.id == PTR;
 		if t.data_type == DT_OBJ {
-			return match is_ptr {false=>t,_=>pointers.get(&t.value).unwrap()}.dict.as_ref().unwrap().contains_key(target);
+            // if is_ptr {
+            //     println!("{}, {}", t, pointers.get(&t.value).unwrap());
+            // }
+            let va = String::from("\"static ")+target;
+            let v = match t.value.find("-super").is_some(){true=>&va,_=>target};
+			return match is_ptr {false=>t,_=>pointers.get(&t.value).unwrap()}.dict.as_ref().unwrap().contains_key(v);
 		}
         if t.data_type == DT_MOD {
             return match mods.contains_key(&t.value) {true=>mods.get(&t.value).unwrap().memory.get(target).id != UDF,_=>false};

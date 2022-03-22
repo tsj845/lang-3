@@ -1,6 +1,7 @@
 #[dump_log=false]
 // linkup other_file;
 // module my_code;
+// print my_code.priv;
 // object_var from my_code;
 
 // dumptoks;
@@ -8,14 +9,23 @@
 c = 0;
 
 class MyClass inheriting System {
-    property myprop = "truthiness... NO";
+    static property myprop = "truthiness... NO";
+    property myprop = "success";
+    static method test () {
+        print "test";
+    }
+    method test (self) {
+        print "self testing";
+    }
     method __init__ (self) {
         global c;
         c += 1;
         print "number of instances:", $c;
         // dumpscope 2;
         // print "self", $self;
-        print "init:", MyClass.myprop;
+        print "init:", MyClass.myprop, self.myprop;
+        self.test();
+        // dumpscope 2;
     }
 }
 
@@ -25,13 +35,13 @@ print "class myprop property:", MyClass.myprop;
 
 // dumpscope 2;
 
+MyClass.test();
+
 inst = create MyClass();
 
 create MyClass();
 
 print inst;
-
-print inst.lime + "INSTANCE" + inst.default;
 
 print MyClass.lime + "MyClass LIME" + MyClass.default;
 
