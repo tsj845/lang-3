@@ -297,6 +297,9 @@ impl Parser {
 				return Ok(t);
 			}
 			if names.insert(t.value.clone(), 0).is_some() {
+				if RUST_ERR {
+					panic!("circular reference loop");
+				}
 				return Err((String::from("circular reference loop"), line, chara));
 			}
 			// println!("RFO: {}, {}", t.value, self.memory.find_flag(t.value.clone()));
@@ -323,6 +326,9 @@ impl Parser {
 				return Ok(r);
 			}
 			if names.insert(r.value.clone(), 0).is_some() {
+				if RUST_ERR {
+					panic!("circular reference loop");
+				}
 				return Err((String::from("circular reference loop"), t.line, t.chara));
 			}
 			// println!("RF: {}, {}", r.value, self.memory.find_flag(r.value.clone()));
@@ -333,7 +339,7 @@ impl Parser {
 		if t.id != PTR {
 			return Ok(t.clone());
 		}
-		return self.derefp(match self.memory.pointer_mem.get(&t.value) {Some(x)=>x,_=>{return Err((String::from("bad pointer"), t.line, t.chara))}});
+		return self.derefp(match self.memory.pointer_mem.get(&t.value) {Some(x)=>x,_=>{if RUST_ERR {panic!("bad pointer");} return Err((String::from("bad pointer"), t.line, t.chara))}});
 	}
 	fn printop (&mut self, mut i : usize, tokens : &Vec<Token>) -> Result<usize, (String, usize, usize)> {
 		i += 1;
@@ -494,7 +500,9 @@ impl Parser {
 			static ref STRING_RE : Regex = Regex::new(TOKEN_STR_RE_PAT).unwrap();
 		}
 		if toks.len() == 0 {
-			return Err((String::from("no tokens provided"), 0, 0));
+			if !RUST_ERR {
+				return Err((String::from("no tokens provided"), 0, 0));
+			}
 		}
 		self.dbdepth += 1;
 		// printlst(&toks);
@@ -1015,6 +1023,8 @@ impl Parser {
 					tokens = x.2;
 					token_index = x.0;
 					tokens[token_index-1] = x.1;
+					// printlst(&tokens);
+					// println!("{}", token_index);
 					tokens.remove(token_index);
 					tokens.remove(token_index);
 					token_index -= 1;
@@ -1188,9 +1198,15 @@ impl Parser {
         let mut t : Token = match is_ref {false=>tokens[i-1].clone(),true=>self.memory.get(&tokens[i-1].value)};
 		let is_ptr : bool = t.id == PTR;
 		let tva : String = String::from("\"static ")+target;
+		let mut is_super : bool = false;
 		if is_ptr {
-			target = match t.value.find("-super").is_some() {true=>&tva,_=>target};
+			if t.value.find("-super").is_some() {
+				target = &tva;
+				is_super = true;
+			}
+			// target = match t.value.find("-super").is_some() {true=>&tva,_=>target};
 		}
+		let ot : Option<Token> = match is_ptr {true=>Some(t.clone()),_=>None};
 		t = match is_ptr {true=>self.memory.pointer_mem.get(&t.value).unwrap().clone(),false=>t};
 		// println!("EXEC DATA: {}, {}, {}", is_ref, t, target);
         if t.data_type == DT_STR {
@@ -1265,8 +1281,14 @@ impl Parser {
 		if t.data_type == DT_OBJ {
 			// println!("OBJECT");
 			let r : Token = match t.getd(target.to_string()){Ok(x)=>x,Err(e)=>{return Err((e, t.line, t.chara))}}.clone();
-			if r.cid == FUN {
-				// todo
+			if r.cid == FUN && !is_super && is_ptr {
+				// println!("CI: {}", i);
+				// printslice(&tokens[i-1..]);
+				i = match self.method_call(i, &mut tokens, ot.unwrap(), &r.value) {Ok(x)=>x,Err(e)=>{return Err(e)}} - 1;
+				// println!("I: {}", i);
+				// printslice(&tokens[i-1..]);
+				// printlst(&tokens);
+				return Ok((i, tokens[i].clone(), tokens));
 			}
 			return Ok((i, r, tokens));
 		} else if t.data_type == DT_MOD {
@@ -1338,6 +1360,14 @@ impl Parser {
 		self.memory.set_protection(name, 1u8);
 		self.memory.pointer_mem.insert(ptr_name, token);
 	}
+	#[allow(dead_code)]
+	fn __sysobj_i (&mut self, name : &str, token : Token) -> () {
+		let ptr_name : String = self.memory.get_ptr_name(name);
+		self.memory.ptr_alloc_global(&ptr_name);
+		self.memory.set(name, Token::new_ptr(token.id, ptr_name.clone(), token.value.clone()));
+		self.memory.set_protection(name, 1u8);
+		self.memory.pointer_mem.insert(ptr_name, token);
+	}
 	pub fn __init (&mut self) -> () {
 		let mut systok : Token = Token::news(OBJ, "SYS", DICT_TOKEN);
 		systok.setd(String::from("\"static lime"), Token::newsb(LIT, r#""\x1b[38;2;0;255;0m""#)).unwrap();
@@ -1348,6 +1378,11 @@ impl Parser {
 		systok.setd(String::from("\"static violet"), Token::newsb(LIT, r#""\x1b[38;2;255;0;255m""#)).unwrap();
 		systok.setd(String::from("\"static default"), Token::newsb(LIT, r#""\x1b[39m""#)).unwrap();
 		self.__sysobj("System", systok);
+		// let mut dummytok : Token = Token::news(OBJ, "DUM", DICT_TOKEN);
+		// let mut dum_ctl_tst : Token = Token::news(FUN, "control_test", LIST_TOKEN);
+		// dum_ctl_tst.extend(vec![Token::newsb(REF, "dummy"), Token::newsb(SEP, "*"), Token::newsb(KEY, "print"), Token::newsb(LIT, "\"control func test\""), Token::newsb(NLN, ";")]).unwrap();
+		// dummytok.setd(String::from("control_test"), dum_ctl_tst).unwrap();
+		// self.__sysobj_i("Dummy", dummytok);
 		self.__prelude();
 	}
 	pub fn run (&mut self) -> u8 {

@@ -4,6 +4,9 @@ use std::collections::HashMap;
 use lazy_static::lazy_static;
 use regex::Regex;
 
+// debug stuff
+pub const RUST_ERR : bool = true;
+
 // data for interpreter info()
 pub const VERSION : &str = "β1.1.class";
 
@@ -23,6 +26,15 @@ macro_rules! printv {
 			print!("\n");
 		}
 	};
+}
+
+// function for printing slice contents
+pub fn printslice<T: std::fmt::Display> (lst : &[T]) {
+	print!("[ ");
+	for item in lst {
+		print!(" '{}', ", item);
+	}
+	println!(" ]");
 }
 
 // function that prints list contents

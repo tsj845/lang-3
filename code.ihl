@@ -4,6 +4,10 @@
 // print my_code.priv;
 // object_var from my_code;
 
+// print "is_alph", "alpha".is_alpha();
+
+// Dummy.control_test(0);
+
 // dumptoks;
 
 c = 0;
@@ -39,7 +43,7 @@ MyClass.test();
 
 inst = create MyClass();
 
-create MyClass();
+// create MyClass();
 
 print inst;
 
