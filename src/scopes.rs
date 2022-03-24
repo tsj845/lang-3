@@ -51,19 +51,25 @@ impl VarScopes {
 		}
 		println!("");
 	}
-	fn dumpscope (&self, index : usize) {
+	fn dumpscope (&self, index : usize, show_options : u32) {
 		println!("\n{}dumping\x1b[39m var scope {}{}\x1b[0m:", DEBUG_PURPLE, DEBUG_BLUE_SCOPE_DUMP, index);
 		for (key, val) in &self.scopes[index] {
 			if self.find_gv(key.to_string()) == 1 {
+				if show_options & 0b1 == 1 {
+					continue;
+				}
 				println!("{} : {} {}protected\x1b[39m", key, val, DEBUG_BLUE_SCOPE_DUMP);
 			} else if self.find_flag_for_scope(key.clone(), index) == 4 {
 				println!("{} : {} {}unique\x1b[39m", key, val, DEBUG_BLUE_SCOPE_DUMP);
 			} else {
+				if show_options & 0b10 == 2 && key.starts_with("\"ptr ") {
+					continue;
+				}
 				println!("{} : {}", key, val);
 			}
 		}
 	}
-	pub fn dump (&self, sid : usize) {
+	pub fn dump (&self, sid : usize, show_options : u32) {
 		if sid == 2 {
 			let mut i : usize = 0;
 			let l = self.scopes.len();
@@ -71,11 +77,11 @@ impl VarScopes {
 				if i >= l {
 					break;
 				}
-				self.dumpscope(i);
+				self.dumpscope(i, show_options);
 				i += 1;
 			}
 		} else {
-			self.dumpscope(sid);
+			self.dumpscope(sid, show_options);
 		}
 	}
 	fn find_gv (&self, varname : String) -> u8 {
@@ -185,6 +191,11 @@ impl VarScopes {
 		if self.find_gv(name.to_string()) == 1 {
 			return self.scopes[0].get(name).unwrap().clone();
 		}
+		if name.starts_with("\"pth ") {
+			let things : Vec<&str> = name.split(' ').collect();
+			let memblock : &Token = self.pointer_mem.get(&self.get(things[1]).value).unwrap();
+			return memblock.getd(things[2].to_owned()).unwrap();
+		}
 		let flag = self.find_flag(name.to_string());
 		if flag == 5 {
 			return self.get_p(name);
@@ -227,6 +238,12 @@ impl VarScopes {
 	}
 	pub fn set (&mut self, name : &str, value : Token) {
 		if self.find_gv(name.to_string()) == 1 {
+			return;
+		}
+		if name.starts_with("\"pth ") {
+			let things : Vec<&str> = name.split(' ').collect();
+			let memblock : &mut Token = self.pointer_mem.get_mut(&self.get(things[1]).value).unwrap();
+			memblock.setd(things[2].to_owned(), value).unwrap();
 			return;
 		}
 		let flag = self.find_flag(name.to_string());

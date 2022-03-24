@@ -13,3 +13,6 @@ REF list SEP * KEY return BND sum PAR ( REF $list PAR )
 '''
 info
 SEP * KEY return BND info PAR ( PAR )
+'''
+main_dump
+SEP * MET terminating_newlines LIT 1 NLN ; KEY print LIT "" NLN ; KEY log LIT "MAIN PROGRAM DUMP" NLN ; KEY dumpscope LIT 2 NLN ;

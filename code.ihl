@@ -1,4 +1,6 @@
 #[dump_log=false]
+#[dump_protected=false]
+#[dump_ptrs=false]
 // linkup other_file;
 // module my_code;
 // print my_code.priv;
@@ -29,6 +31,8 @@ class MyClass inheriting System {
         // print "self", $self;
         print "init:", MyClass.myprop, self.myprop;
         self.test();
+        self.myprop = "happiness";
+        print "myprop mod:", self.myprop;
         // dumpscope 2;
     }
 }
@@ -47,6 +51,10 @@ inst = create MyClass();
 
 print inst;
 
+inst.myprop = "more happiness...?";
+
+print inst.myprop;
+
 print MyClass.lime + "MyClass LIME" + MyClass.default;
 
 #[terminating_newlines=1]
@@ -55,9 +63,6 @@ print MyClass.lime + "MyClass LIME" + MyClass.default;
 //#[token_block__NLN=true]
 //#[token_block__MET=true]
 
-// #[terminating_newlines=1]
-// log "MAIN PROGRAM DUMP";
-
-// dumpscope 2;
+main_dump();
 
 info();
