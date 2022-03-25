@@ -12,50 +12,11 @@
 
 // dumptoks;
 
-c = 0;
+readonly ro_t = "readonly variable";
 
-class MyClass inheriting System {
-    static property myprop = "truthiness... NO";
-    property myprop = "success";
-    static method test () {
-        print "test";
-    }
-    method test (self) {
-        print "self testing";
-    }
-    method __init__ (self) {
-        global c;
-        c += 1;
-        print "number of instances:", $c;
-        // dumpscope 2;
-        // print "self", $self;
-        print "init:", MyClass.myprop, self.myprop;
-        self.test();
-        self.myprop = "happiness";
-        print "myprop mod:", self.myprop;
-        // dumpscope 2;
-    }
-}
+ro_t = "read write";
 
-print "class myprop property:", MyClass.myprop;
-
-// dumptoks;
-
-// dumpscope 2;
-
-MyClass.test();
-
-inst = create MyClass();
-
-// create MyClass();
-
-print inst;
-
-inst.myprop = "more happiness...?";
-
-print inst.myprop;
-
-print MyClass.lime + "MyClass LIME" + MyClass.default;
+print $ro_t;
 
 #[terminating_newlines=1]
 #[print_sep_spaces=1]

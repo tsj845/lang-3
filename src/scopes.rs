@@ -259,10 +259,10 @@ impl VarScopes {
 			return;
 		}
 		let flag = self.find_flag(name.to_string());
-		if flag & 0b1100 == 0b1100 {
+		if flag & 0b1100 == 0b1100 || (flag & 0b10000 == 0b10000 && !self.get(name).matchup(UDF, "UDF")) {
 			return;
 		}
-		if flag & 0b1000 == 0b1000 || flag & 0b10000 == 0b10000 {
+		if flag & 0b1000 == 0b1000 {
 			self.set_p(name, value);
 			return;
 		}
