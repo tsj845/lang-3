@@ -865,19 +865,23 @@ impl Parser {
 					println!("\n");
 				} else if token.value == "global" {
 					if tokens[token_index+1].id == REF {
-						self.memory.flag_var(tokens[token_index+1].value.clone(), 3u8);
+						self.memory.flag_var_or(tokens[token_index+1].value.clone(), 0b11u8);
 					}
 				} else if token.value == "local" {
 					if tokens[token_index+1].id == REF {
-						self.memory.flag_var(tokens[token_index+1].value.clone(), 0u8);
+						self.memory.flag_var_and(tokens[token_index+1].value.clone(), !0b11u8);
 					}
 				} else if token.value == "unique" {
 					if tokens[token_index+1].id == REF {
-						self.memory.flag_var(tokens[token_index+1].value.clone(), 4u8);
+						self.memory.flag_var_or_and(tokens[token_index+1].value.clone(), 0b100u8, !0b1000u8);
 					}
 				} else if token.value == "parent" {
 					if tokens[token_index+1].id == REF {
-						self.memory.flag_var(tokens[token_index+1].value.clone(), 5u8);
+						self.memory.flag_var_or_and(tokens[token_index+1].value.clone(), 0b1000u8, !0b100u8);
+					}
+				} else if token.value == "readonly" {
+					if tokens[token_index+1].id == REF {
+						self.memory.flag_var_or(tokens[token_index+1].value.clone(), 0b10000u8);
 					}
 				} else if token.value == "rm" {
 					self.memory.rm(&tokens[token_index+1].value);

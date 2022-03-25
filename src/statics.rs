@@ -8,7 +8,7 @@ use regex::Regex;
 pub const RUST_ERR : bool = true;
 
 // data for interpreter info()
-pub const VERSION : &str = "β1.1.class";
+pub const VERSION : &str = "β1.2.keywords.1";
 
 // a print operation that can accept any number of arguments then prints them
 #[macro_export]

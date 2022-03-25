@@ -5,12 +5,12 @@ use rand::random;
 
 /**
  * variable flags
- * 0 - (default behavior, local) read up, write up
- * 1 - read up, write down
- * 2 - read down, write up
- * 3 - (global) read down, write down
- * 4 - (unique) only accessed in the scope it was defined in
- * 5 - (parent) go up exactly one level
+ * (in order from rtl in the bits of a number)
+ * 0 - read direction (0 for read up, 1 for read down)
+ * 1 - write direction (0 for write up, 1 for write down)
+ * 2 - unique flag (1 if variable is unique) mutually exclusive with parent
+ * 3 - parent flag (1 if variable is parent) mutually exclusive with unique
+ * 4 - readonly flag (1 if variable is readonly)
  * global flags
  * 0 - (default behavior, normal) program managed
  * 1 - (protected) protected object, immutable and always accessed as global
@@ -112,6 +112,18 @@ impl VarScopes {
 	pub fn flag_var (&mut self, varname : String, flag_value : u8) {
 		self.var_flags[self.scope_count-1].insert(varname, flag_value);
 	}
+	pub fn flag_var_or (&mut self, varname : String, flag_value : u8) {
+		let ov = self.var_flags[self.scope_count-1].get(&varname).unwrap_or(&0).clone();
+		self.var_flags[self.scope_count-1].insert(varname, ov | flag_value);
+	}
+	pub fn flag_var_and (&mut self, varname : String, flag_value : u8) {
+		let ov = self.var_flags[self.scope_count-1].get(&varname).unwrap_or(&0).clone();
+		self.var_flags[self.scope_count-1].insert(varname, ov & flag_value);
+	}
+	pub fn flag_var_or_and (&mut self, varname : String, or_value : u8, and_value : u8) {
+		let ov = self.var_flags[self.scope_count-1].get(&varname).unwrap_or(&0).clone();
+		self.var_flags[self.scope_count-1].insert(varname, ov | or_value & and_value);
+	}
 	pub fn set_protection (&mut self, varname : &str, flag_value : u8) {
 		self.gv_flags.insert(varname.to_string(), flag_value);
 	}
@@ -161,7 +173,7 @@ impl VarScopes {
 		let mut i : usize = self.scope_count-1;
 		loop {
 			// println!("GRD: {}, {}, {}", name, self.scopes[i].contains_key(name), self.find_flag_for_scope(name.to_owned(), i));
-			if self.scopes[i].contains_key(name) && (self.find_flag_for_scope(name.to_owned(), i) != 4 || i == self.scope_count-1) {
+			if self.scopes[i].contains_key(name) && (self.find_flag_for_scope(name.to_owned(), i) & 0b100 != 0b100 || i == self.scope_count-1) {
 				return self.scopes[i].get(&name.to_string()).unwrap().clone();
 			}
 			if i == 0 {
@@ -177,7 +189,7 @@ impl VarScopes {
 			if i >= self.scope_count {
 				break;
 			}
-			if self.scopes[i].contains_key(name.clone()) && (self.find_flag_for_scope(name.to_owned(), i) != 4 || i == self.scope_count-1) {
+			if self.scopes[i].contains_key(name.clone()) && (self.find_flag_for_scope(name.to_owned(), i) & 0b100 != 0b100 || i == self.scope_count-1) {
 				return self.scopes[i].get(&name.to_string()).unwrap().clone();
 			}
 			i += 1;
@@ -197,18 +209,18 @@ impl VarScopes {
 			return memblock.getd(things[2].to_owned()).unwrap();
 		}
 		let flag = self.find_flag(name.to_string());
-		if flag == 5 {
+		if flag & 0b1000 == 0b1000 {
 			return self.get_p(name);
 		}
-		if flag > 1 {
-			return self.get_f(name);
+		if flag & 0b1 == 0b1 {
+			return self.get_r(name);
 		}
-		return self.get_r(name);
+		return self.get_f(name);
 	}
 	fn set_r (&mut self, name : &str, value : Token) {
 		let mut i : usize = self.scope_count-1;
 		loop {
-			if self.scopes[i].contains_key(name.clone()) && (self.find_flag_for_scope(name.to_owned(), i) != 4 || i == self.scope_count-1) {
+			if self.scopes[i].contains_key(name.clone()) && (self.find_flag_for_scope(name.to_owned(), i) & 0b100 != 0b100 || i == self.scope_count-1) {
 				self.scopes[i].insert(name.to_string(), value);
 				return;
 			}
@@ -225,7 +237,7 @@ impl VarScopes {
 			if i >= self.scope_count {
 				break;
 			}
-			if self.scopes[i].contains_key(name.clone()) && (self.find_flag_for_scope(name.to_owned(), i) != 4 || i == self.scope_count-1) {
+			if self.scopes[i].contains_key(name.clone()) && (self.find_flag_for_scope(name.to_owned(), i) & 0b100 != 0b100 || i == self.scope_count-1) {
 				self.scopes[i].insert(name.to_string(), value);
 				return;
 			}
@@ -247,14 +259,17 @@ impl VarScopes {
 			return;
 		}
 		let flag = self.find_flag(name.to_string());
-		if flag % 2 == 0 && flag < 3 {
-			self.set_r(name, value);
-		} else if flag < 4 {
-			self.set_f(name, value);
-		} else if flag == 5 {
+		if flag & 0b1100 == 0b1100 {
+			return;
+		}
+		if flag & 0b1000 == 0b1000 || flag & 0b10000 == 0b10000 {
 			self.set_p(name, value);
-		} else if flag == 4 {
-			self.scopes[self.scope_count-1].insert(name.to_string(), value);
+			return;
+		}
+		if flag & 0b10 == 0b10 {
+			self.set_f(name, value);
+		} else {
+			self.set_r(name, value);
 		}
 	}
 	fn rm_r (&mut self, name : &str) {
