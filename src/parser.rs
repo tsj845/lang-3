@@ -881,9 +881,7 @@ impl Parser {
 					}
 				} else if token.value == "readonly" {
 					if tokens[token_index+1].id == REF {
-						println!("READONLY");
 						self.memory.flag_var_or(tokens[token_index+1].value.clone(), 0b10000u8);
-						println!("{}", self.memory.find_flag(tokens[token_index+1].value.clone()));
 					}
 				} else if token.value == "rm" {
 					self.memory.rm(&tokens[token_index+1].value);
